@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-fastapi
+  namespace: {{ .Release.Namespace }}
+  labels:
+    grafana_dashboard: "1"
+data:
+  fastapi.json: |
+    {{ .Files.Get "dashboards/22676_rev4_fastapi.json" | nindent 4 }}

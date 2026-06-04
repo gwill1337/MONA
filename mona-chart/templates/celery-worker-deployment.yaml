@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-worker
+spec:
+  replicas: {{ .Values.celeryWorker.replicas }}
+  selector:
+    matchLabels:
+      app: celery-worker
+  template:
+    metadata:
+      labels:
+        app: celery-worker
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.images.celery.repository }}:{{ .Values.images.celery.tag }}"
+          imagePullPolicy: {{ .Values.images.celery.pullPolicy }}
+          command:
+            {{- toYaml .Values.celeryWorker.command | nindent 12 }}
+          env:
+            - name: REDIS_URL
+              value: {{ include "mona.redisUrl" . | quote }}
+            - name: DATABASE_URL
+              value: {{ include "mona.databaseUrl" . | quote }}
+            - name: PROMETHEUS_PC_JOB
+              value: {{ .Values.global.externalPcExporter.jobName | quote }}
+            - name: PROMETHEUS_URL
+              value: "http://prometheus-main-metrics.{{ .Release.Namespace }}.svc:9090"
+          resources:
+            {{- toYaml .Values.celeryWorker.resources | nindent 12 }}

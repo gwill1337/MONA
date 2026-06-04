@@ -1,0 +1,7 @@
+celery
+requests
+sqlalchemy
+psycopg2-binary
+redis
+scikit-learn
+numpy

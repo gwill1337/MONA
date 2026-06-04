@@ -1,0 +1,10 @@
+FROM python:3.11
+
+WORKDIR /app
+
+COPY requirements_celery.txt .
+RUN pip install -r requirements_celery.txt
+
+COPY celery_conf.py tasks.py ml.py db.py ./
+
+CMD ["celery", "-A", "celery_conf.app", "worker", "--loglevel=info"]

@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi-deployment
+spec:
+  replicas: {{ .Values.fastapi.replicas }}
+  selector:
+    matchLabels:
+      app: fastapi
+  template:
+    metadata:
+      labels:
+        app: fastapi
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "{{ .Values.fastapi.service.targetPort }}"
+    spec:
+      containers:
+        - name: fastapi
+          image: "{{ .Values.images.fastapi.repository }}:{{ .Values.images.fastapi.tag }}"
+          imagePullPolicy: {{ .Values.images.fastapi.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.fastapi.service.targetPort }}
+          resources:
+            {{- toYaml .Values.fastapi.resources | nindent 12 }}
+          env:
+            - name: DATABASE_URL
+              value: {{ include "mona.databaseUrl" . | quote }}
+            - name: REDIS_URL
+              value: {{ include "mona.redisUrl" . | quote }}

@@ -1,0 +1,140 @@
+global:
+  namespace: mona
+  # Метрики физического ПК: IP/hostname должны быть доступны ИЗ ПОДА Prometheus (firewall, маршрутизация).
+  # На ПК: node_exporter (или windows_exporter) слушает 0.0.0.0:port.
+  externalPcExporter:
+    host: "10.0.0.7"
+    port: 9100
+    jobName: "external-pc-node-exporter"
+
+images:
+  fastapi:
+    repository: gwill1337/mona-fastapi
+    tag: latest
+    pullPolicy: Always
+  celery:
+    repository: gwill1337/mona-celery
+    tag: latest
+    pullPolicy: Always
+  postgres:
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+  redis:
+    repository: redis
+    tag: "7"
+    pullPolicy: IfNotPresent
+  prometheus:
+    repository: prom/prometheus
+    tag: latest
+    pullPolicy: IfNotPresent
+
+fastapi:
+  replicas: 1
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 80
+    nodePort: 30080
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+
+celeryWorker:
+  replicas: 1
+  command: ["celery", "-A", "celery_conf.app", "worker", "--loglevel=info"]
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+
+celeryBeat:
+  replicas: 1
+  command: ["celery", "-A", "celery_conf.app", "beat", "--loglevel=info"]
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+
+postgres:
+  service:
+    port: 5432
+  auth:
+    user: myuser
+    db: mydb
+  persistence:
+    enabled: true
+    size: 1Gi
+  resources:
+    requests: { cpu: "250m", memory: "256Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+
+redis:
+  service:
+    port: 6379
+  persistence:
+    enabled: true
+    # hostPath для локалки, в prod лучше PVC
+    hostPath: /data/redisdata
+  resources:
+    requests: { cpu: "250m", memory: "256Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+
+# Отдельный Prometheus (только chart mona): ПК + SD нод/подов. Не пересекается по именам с kube-prometheus-stack.
+prometheus:
+  enabled: true
+  replicas: 1
+  service:
+    type: NodePort
+    port: 9090
+    targetPort: 9090
+    # Не ставь тот же nodePort, что у других сервисов (старый комментарий использовал 30090).
+    nodePort: 30091
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits: { cpu: "500m", memory: "1Gi" }
+
+monitoring:
+  enabled: true
+
+kube-prometheus-stack:
+  grafana:
+    enabled: true
+    service:
+      type: NodePort
+      nodePort: 30300
+    adminPassword: "admin123"
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        searchNamespace: mona
+    dashboardProviders:
+      dashboardproviders.yaml:
+        apiVersion: 1
+        providers:
+          - name: default
+            orgId: 1
+            folder: ""
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/default
+    datasources:
+      datasources.yaml:
+        apiVersion: 1
+        datasources:
+          - name: Prometheus
+            type: prometheus
+            access: proxy
+            url: http://mona-kube-prometheus-stack-prometheus.mona.svc:9090
+            isDefault: false
+          - name: Prometheus-PC
+            type: prometheus
+            access: proxy
+            url: http://prometheus-main-metrics.mona.svc:9090
+            isDefault: false
+  prometheus:
+    enabled: true
+  # Внешний ПК скрейпится отдельным prometheus-main-metrics (templates/prometheus-*.yaml).
+  nodeExporter:
+    enabled: true

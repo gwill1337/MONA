@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: celery-beat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: celery-beat
+  template:
+    metadata:
+      labels:
+        app: celery-beat
+    spec:
+      containers:
+        - name: beat
+          image: gwill1337/mona-celery:latest
+          command: ["celery", "-A", "celery_conf.app", "beat", "--loglevel=info"]
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          env:
+            - name: REDIS_URL
+              value: "redis://redis:6379/0"
+            - name: DATABASE_URL
+              value: "postgresql://myuser:1234@postgres:5432/mydb"

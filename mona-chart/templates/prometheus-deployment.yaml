@@ -1,0 +1,40 @@
+{{- if .Values.prometheus.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus-main-metrics
+spec:
+  replicas: {{ .Values.prometheus.replicas }}
+  selector:
+    matchLabels:
+      app: prometheus-main-metrics
+  template:
+    metadata:
+      labels:
+        app: prometheus-main-metrics
+    spec:
+      serviceAccountName: {{ include "mona.prometheusServiceAccount" . }}
+      containers:
+        - name: prometheus-main-metrics
+          image: "{{ .Values.images.prometheus.repository }}:{{ .Values.images.prometheus.tag }}"
+          imagePullPolicy: {{ .Values.images.prometheus.pullPolicy }}
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --web.enable-lifecycle
+          ports:
+            - containerPort: {{ .Values.prometheus.service.targetPort }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/prometheus
+            - name: data
+              mountPath: /prometheus
+          resources:
+            {{- toYaml .Values.prometheus.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap:
+            name: {{ printf "%s-prometheus-config" .Release.Name | trunc 63 | trimSuffix "-" }}
+        - name: data
+          emptyDir: {}
+{{- end }}
