@@ -17,7 +17,7 @@ The infrastructure is managed using Terraform and Helm. The Kubernetes cluster c
 
 Postgres is a `Statefulset` that provides stable pod identifiers, persistent storage linked to specific pods, and ordered deployment for stateful applications.   
 
-Cluster use **Helm** for templates that provides flexible and fast setup, and can be configured in [values](), and [values-prod]().
+Cluster use **Helm** for templates that provides flexible and fast setup, and can be configured in [values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml), and [values-prod](https://github.com/gwill1337/MONA/blob/main/mona-chart/values-prod.yaml).
  
 ## Set Up
 
@@ -27,20 +27,20 @@ Download [**Docker Desktop**](https://www.docker.com/products/docker-desktop/)
 Download [**kind**](https://github.com/kubernetes-sigs/kind)   
 Download [**helm**](https://helm.sh/)   
 Download [**Terraform**](https://developer.hashicorp.com/terraform/install)   
-Clone repo ` `
+Clone repo ` git clone https://github.com/gwill1337/MONA.git `
 
 
 ### Seting Up:
-Configure all info in "mona-chart/[values]()" and "mona-chart/[values-prod]()" if needed.
+Configure all info in "mona-chart/[values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml)" and "mona-chart/[values-prod](https://github.com/gwill1337/MONA/blob/main/mona-chart/values-prod.yaml)" if needed.
 
 
 #### Setting Up with Script and Tests:
 1. Download [**kubeconform**](https://github.com/yannh/kubeconform#Installation)
-2. Run `setup_bash.sh` or `setup_ps.ps1` from folder [**scripts**]()
+2. Run `setup_bash.sh` or `setup_ps.ps1` from folder [**scripts**](https://github.com/gwill1337/MONA/tree/main/scripts)
 
 
 #### Setting UP manually:
-1. Go to the folder [yaml]()
+1. Go to the folder [yaml](https://github.com/gwill1337/MONA/tree/main/yaml)
 2. Run
 ```bash
     terraform init
