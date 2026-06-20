@@ -8,6 +8,12 @@ terraform.tfstate.backup
 override.tf
 override.tf.json
 
+# Else
+celerybeat-schedule
+terraform.tfstate.backup
+terraform.tfstate
+
+
 # Python
 __pycache__/
 *.py[cod]
