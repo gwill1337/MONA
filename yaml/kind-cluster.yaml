@@ -1,0 +1,29 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+ - role: control-plane
+   extraPortMappings:
+     - containerPort: 30080
+       hostPort: 30080
+     - containerPort: 30090
+       hostPort: 30090
+     - containerPort: 30300
+       hostPort: 30300
+ - role: worker
+   labels:
+     app: postgres
+ - role: worker
+   labels:
+     app: redis
+ - role: worker
+   labels:
+     app: fastapi
+ - role: worker
+   labels:
+     app: celery-worker
+ - role: worker
+   labels:
+     app: celery-beat
+ - role: worker
+   labels:
+     app: grafana

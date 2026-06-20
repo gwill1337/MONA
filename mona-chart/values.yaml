@@ -60,6 +60,9 @@ postgres:
   auth:
     user: myuser
     db: mydb
+    # Backwards-compatible keys expected by templates
+    username: myuser
+    database: mydb
   persistence:
     enabled: true
     size: 1Gi
@@ -86,7 +89,6 @@ prometheus:
     type: NodePort
     port: 9090
     targetPort: 9090
-    # Не ставь тот же nodePort, что у других сервисов (старый комментарий использовал 30090).
     nodePort: 30091
   resources:
     requests: { cpu: "100m", memory: "256Mi" }

@@ -26,3 +26,15 @@ spec:
         - name: redis-data
           hostPath:
             path: {{ .Values.redis.persistence.hostPath }}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  ports:
+    - port: {{ .Values.redis.service.port }}
+  selector:
+    app: redis-pod

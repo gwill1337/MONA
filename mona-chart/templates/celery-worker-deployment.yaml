@@ -12,6 +12,17 @@ spec:
       labels:
         app: celery-worker
     spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.36
+          command: ['sh', '-c']
+          args:
+            - |
+              until nc -z -w 2 postgres {{ .Values.postgres.service.port }}; do
+                echo "Waiting for PostgreSQL...";
+                sleep 2;
+              done;
+              echo "PostgreSQL is available!"
       containers:
         - name: worker
           image: "{{ .Values.images.celery.repository }}:{{ .Values.images.celery.tag }}"
@@ -22,7 +33,7 @@ spec:
             - name: REDIS_URL
               value: {{ include "mona.redisUrl" . | quote }}
             - name: DATABASE_URL
-              value: {{ include "mona.databaseUrl" . | quote }}
+              value: "postgresql://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password }}@postgres:{{ .Values.postgres.service.port }}/{{ .Values.postgres.auth.database }}"
             - name: PROMETHEUS_PC_JOB
               value: {{ .Values.global.externalPcExporter.jobName | quote }}
             - name: PROMETHEUS_URL

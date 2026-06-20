@@ -42,3 +42,17 @@ spec:
         resources:
           requests:
             storage: {{ .Values.postgres.persistence.size }}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.postgres.service.port }}
+      targetPort: {{ .Values.postgres.service.port }}
+  selector:
+    app: postgres-pod
