@@ -12,7 +12,6 @@ Features (6 items):
   cpu_d5, ram_d5          — change over 5 points (~25 sec)
 """
 
-import io
 import pickle
 from datetime import UTC, datetime, timedelta
 
@@ -20,17 +19,15 @@ import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
-
 from py.celery_conf import app
-from py.db import SessionLocal, Metric, Anomaly, TrainedModel
-
+from py.db import Anomaly, Metric, SessionLocal, TrainedModel
 
 WINDOW = 500
 MIN_POINTS = 30
 CONTAMINATION = 0.05
 
 
-# -------- helpers -------- 
+# -------- helpers --------
 
 def _build_features(rows):
     """
@@ -39,42 +36,42 @@ def _build_features(rows):
     """
     cpu = np.array([r.cpu for r in rows], dtype=float)
     ram = np.array([r.ram for r in rows], dtype=float)
- 
+
     # Delta from the previous point (i-1)
     cpu_d1 = np.concatenate([[0], np.diff(cpu)])
     ram_d1 = np.concatenate([[0], np.diff(ram)])
- 
+
     # Delta from 5 points ago
     cpu_d5 = np.concatenate([[0]*5, cpu[5:] - cpu[:-5]])
     ram_d5 = np.concatenate([[0]*5, ram[5:] - ram[:-5]])
- 
+
     return np.column_stack([cpu, ram, cpu_d1, ram_d1, cpu_d5, ram_d5])
 
 
 def _describe_reason(row, cpu_d1, ram_d1, cpu_d5, ram_d5):
     """Human-readable description of why the point is anomalous."""
     parts = []
- 
+
     if row.cpu > 85:
         parts.append(f"высокий cpu={row.cpu:.1f}%")
     if row.ram > 85:
         parts.append(f"высокий ram={row.ram:.1f}%")
- 
+
     if abs(cpu_d1) > 20:
         sign = "▲" if cpu_d1 > 0 else "▼"
         parts.append(f"резкий скачок cpu {sign}{abs(cpu_d1):.1f}%")
     if abs(ram_d1) > 15:
         sign = "▲" if ram_d1 > 0 else "▼"
         parts.append(f"резкий скачок ram {sign}{abs(ram_d1):.1f}%")
- 
+
     if abs(cpu_d5) > 30:
         parts.append(f"cpu вырос на {cpu_d5:.1f}% за 25 сек")
     if abs(ram_d5) > 20:
         parts.append(f"ram вырос на {ram_d5:.1f}% за 25 сек")
- 
+
     if not parts:
         parts.append(f"комбинированная аномалия (cpu={row.cpu:.1f}%, ram={row.ram:.1f}%)")
- 
+
     return ", ".join(parts)
 
 
@@ -92,7 +89,7 @@ def _load_user_model(db):
     return model, scaler
 
 
-# -------- celery task -------- 
+# -------- celery task --------
 
 @app.task
 def detect_anomalies():
@@ -101,7 +98,7 @@ def detect_anomalies():
     try:
 
         cutoff_new = datetime.now(UTC) - timedelta(minutes=2)
-        
+
         rows = (
             db.query(Metric)
             .filter(Metric.cpu > 0.1)
@@ -109,29 +106,29 @@ def detect_anomalies():
             .limit(WINDOW)
             .all()
         )
- 
+
         if len(rows) < MIN_POINTS:
             return {
                 "status": "skipped",
                 "reason": f"мало данных ({len(rows)} точек, нужно {MIN_POINTS}+)"
             }
- 
+
         rows = list(reversed(rows))
 
         user_model, user_scaler = _load_user_model(db)
 
         if user_model is not None:
             # ── Mode 1: custom user model ──
-            X_all = _build_features(rows)
-            X_scaled = user_scaler.transform(X_all)
+            X_all = _build_features(rows) # noqa: N806
+            X_scaled = user_scaler.transform(X_all) # noqa: N806
             preds = user_model.predict(X_scaled)
             scores = user_model.decision_function(X_scaled)
             mode ="user_model"
         else:
             # ── Mode 2: on-the-fly training (fallback) ──
-            X_all = _build_features(rows)
+            X_all = _build_features(rows) # noqa: N806
             scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(X_all)
+            X_scaled = scaler.fit_transform(X_all) # noqa: N806
             model = IsolationForest(
                 n_estimators=200,
                 contamination=CONTAMINATION,
@@ -140,19 +137,19 @@ def detect_anomalies():
             preds = model.fit_predict(X_scaled)
             scores = model.decision_function(X_scaled)
             mode = "auto"
- 
+
         existing_ids = {
             a.metric_id for a in db.query(Anomaly.metric_id).all()
         }
- 
+
         new_anomalies = []
         for i, row in enumerate(rows):
             if mode == "auto" and row.timestamp < cutoff_new.replace(tzinfo=None):
                 continue
             if preds[i] != -1 or row.id in existing_ids:
                 continue
-                
-            X_raw = _build_features(rows)
+
+            X_raw = _build_features(rows) # noqa: N806
 
             reason = _describe_reason(
                 row,
@@ -161,7 +158,7 @@ def detect_anomalies():
                 cpu_d5=X_raw[i, 4],
                 ram_d5=X_raw[i, 5],
             )
- 
+
             new_anomalies.append(Anomaly(
                 metric_id=row.id,
                 cpu=row.cpu,
@@ -170,18 +167,18 @@ def detect_anomalies():
                 reason=reason,
                 score=round(float(scores[i]), 4),
             ))
- 
+
         if new_anomalies:
             db.bulk_save_objects(new_anomalies)
             db.commit()
- 
+
         return {
             "status": "ok",
             "mode": mode,
             "window": len(rows),
             "anomalies_found": len(new_anomalies),
         }
- 
+
     except Exception as e:
         db.rollback()
         return {"status": "error", "error": str(e)}

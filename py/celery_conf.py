@@ -1,6 +1,6 @@
-from celery import Celery
 import os
 
+from celery import Celery
 
 app = Celery("mona")
 
@@ -13,8 +13,6 @@ app.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", database_url)
 
 app.conf.timezone = "UTC"
 
-import py.tasks as tasks
-import py.ml as ml
 
 app.conf.worker_pool = 'solo'
 

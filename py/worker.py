@@ -1,4 +1,5 @@
 import time
+
 from py.tasks import collect_and_save
 
 while True:

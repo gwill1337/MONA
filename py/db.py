@@ -1,7 +1,16 @@
-from sqlalchemy import create_engine, Column, Integer, Float, DateTime, Boolean, String, LargeBinary
-from sqlalchemy.orm import sessionmaker, declarative_base
-from datetime import datetime, UTC
 import os
+from datetime import UTC, datetime
+
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Float,
+    Integer,
+    LargeBinary,
+    String,
+    create_engine,
+)
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 timestamp = datetime.now(UTC)
 

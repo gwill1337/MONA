@@ -2,17 +2,14 @@ import pickle
 from datetime import UTC, datetime, timedelta
 
 import numpy as np
+import plotly.graph_objects as go
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse, JSONResponse
-
+from prometheus_fastapi_instrumentator import Instrumentator
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
-import plotly.graph_objects as go
-from py.db import SessionLocal, Metric,  Anomaly, Base, TrainedModel, engine
-
-from prometheus_fastapi_instrumentator import Instrumentator
-
+from py.db import Anomaly, Base, Metric, SessionLocal, TrainedModel, engine
 
 Base.metadata.create_all(engine)
 
@@ -21,7 +18,7 @@ app = FastAPI()
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # ─── helpers ────────────────────────────────────────────────────────────────
- 
+
 def _build_features(rows):
     cpu = np.array([r.cpu for r in rows], dtype=float)
     ram = np.array([r.ram for r in rows], dtype=float)
@@ -110,10 +107,10 @@ def train_model(
                 status_code=400,
                 content={"status": "error", "message": f"Not enough data for training (found {len(rows)}, minimum 30 required)"},
             )
-        
-        X_raw = _build_features(rows)
+
+        X_raw = _build_features(rows) # noqa: N806
         scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X_raw)
+        X_scaled = scaler.fit_transform(X_raw) # noqa: N806
 
         model = IsolationForest(
             n_estimators=200,
@@ -142,7 +139,7 @@ def train_model(
             "period_to": rows[-1].timestamp,
             "points_count": len(rows),
         }
-    
+
     except Exception as e:
         db.rollback()
         return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
@@ -175,7 +172,7 @@ async def get_dashboard(hours: int = 1):
             q_a = q_a.filter(Anomaly.timestamp >= since)
         metrics   = q_m.order_by(Metric.timestamp).all()
         anomalies = q_a.order_by(Anomaly.timestamp).all()
- 
+
         # Model info
         model_record = (
             db.query(TrainedModel)
@@ -185,10 +182,10 @@ async def get_dashboard(hours: int = 1):
         )
     finally:
         db.close()
- 
+
     if not metrics:
         return "<h1>No data available</h1>"
- 
+
     times      = [m.timestamp.strftime("%H:%M:%S") for m in metrics]
     cpu_values = [m.cpu for m in metrics]
     ram_values = [m.ram for m in metrics]
@@ -196,7 +193,7 @@ async def get_dashboard(hours: int = 1):
     a_cpu      = [a.cpu for a in anomalies]
     a_ram      = [a.ram for a in anomalies]
     a_text     = [f"⚠️ {a.reason}<br>score: {a.score}" for a in anomalies]
- 
+
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=times, y=cpu_values, mode='lines', name='CPU %',
                              line=dict(color='#e74c3c', width=1.5)))
@@ -209,7 +206,7 @@ async def get_dashboard(hours: int = 1):
         fig.add_trace(go.Scatter(x=a_times, y=a_ram, mode='markers', name='⚠️ Anomaly (RAM)',
             marker=dict(color='orange', size=10, symbol='x', line=dict(width=2, color='darkorange')),
             text=a_text, hovertemplate='%{text}<extra></extra>'))
- 
+
     label = f"last {hours} h." if hours > 0 else "all time"
     fig.update_layout(
         title=f'CPU & RAM — {label}  |  anomalies: {len(anomalies)}',
@@ -217,7 +214,7 @@ async def get_dashboard(hours: int = 1):
         yaxis=dict(range=[0, 105]), template='plotly_white',
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
     )
- 
+
     # ── Model block ──
     if model_record:
         trained_str = model_record.trained_at.strftime("%d.%m.%Y %H:%M")
@@ -238,7 +235,7 @@ async def get_dashboard(hours: int = 1):
         <div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:6px;padding:12px 16px;margin-bottom:16px">
             <b>Auto-mode:</b> model trains on the fly. Train manually on a "clean" period for best results.
         </div>"""
- 
+
     # ── Anomalies table ──
     anomaly_rows = ""
     for a in reversed(anomalies[-20:]):
@@ -246,7 +243,7 @@ async def get_dashboard(hours: int = 1):
         color = 'red' if a.score < -0.1 else 'orange'
         anomaly_rows += (f"<tr><td>{ts}</td><td>{a.cpu:.1f}%</td><td>{a.ram:.1f}%</td>"
                          f"<td>{a.reason}</td><td style='color:{color}'>{a.score:.4f}</td></tr>")
- 
+
     anomaly_section = ""
     if anomaly_rows:
         anomaly_section = f"""
@@ -261,7 +258,7 @@ async def get_dashboard(hours: int = 1):
         <p style="font-size:12px;color:#888">Score: the lower, the stronger the anomaly</p>"""
     else:
         anomaly_section = "<p style='color:green'>✅ No anomalies detected for the selected period</p>"
- 
+
     return f"""
     <html>
     <head>
@@ -280,9 +277,9 @@ async def get_dashboard(hours: int = 1):
     </head>
     <body>
         <h1>📊 Dashboard</h1>
- 
+
         {model_block}
- 
+
         <!-- Training form -->
         <div class="train-form">
             <label>Train model on a "clean" period:</label>
@@ -291,7 +288,7 @@ async def get_dashboard(hours: int = 1):
             <button class="train-btn" onclick="trainModel()">Train</button>
             <div id="train-result"></div>
         </div>
- 
+
         <!-- Display period -->
         <label>Period:&nbsp;
         <select onchange="location.href='/?hours=' + this.value">
@@ -301,10 +298,10 @@ async def get_dashboard(hours: int = 1):
             <option value="0"   {'selected' if hours==0   else ''}>All time</option>
         </select>
         </label>
- 
+
         {fig.to_html(include_plotlyjs='cdn', full_html=False)}
         {anomaly_section}
- 
+
         <script>
         async function trainModel() {{
             const hours = document.getElementById('train-hours').value;
@@ -327,7 +324,7 @@ async def get_dashboard(hours: int = 1):
                 div.textContent = '❌ Connection error';
             }}
         }}
- 
+
         async function deleteModel() {{
             if (!confirm('Reset model and return to auto-mode?')) return;
             const r = await fetch('/model', {{method:'DELETE'}});
