@@ -1,0 +1,54 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: mona-alerts
+  namespace: mona
+  labels:
+    release: mona
+spec:
+  groups:
+    - name: mona.rules
+      rules:
+
+        - alert: PodCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total[5m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod is crash looping"
+            description: "Pod is restarting frequently"
+
+        - alert: CeleryWorkerDown
+          expr: up{job="celery"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Celery worker is down"
+
+        - alert: HighMemoryUsage
+          expr: |
+            container_memory_usage_bytes{namespace="mona"}
+            / container_spec_memory_limit_bytes{namespace="mona"} > 0.8
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High memory usage detected"
+
+        - alert: PostgresDown
+          expr: up{job="postgres"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "PostgreSQL is down"
+        # - alert: TestAlertAlwaysFiring
+        #   expr: vector(1)
+        #   for: 0m
+        #   labels:
+        #       severity: warning
+        #   annotations:
+        #       summary: "Это тестовый алерт"

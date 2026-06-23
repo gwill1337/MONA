@@ -1,3 +1,4 @@
+---
 postgres:
   auth:
     user: myuser

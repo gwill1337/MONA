@@ -37,9 +37,9 @@ resource "random_password" "postgres_password" {
 }
 
 resource "kind_cluster" "mona_cluster" {
-  name            = "mona"
-  node_image      = "kindest/node:v1.31.0"
-  wait_for_ready  = true
+  name           = "mona"
+  node_image     = "kindest/node:v1.31.0"
+  wait_for_ready = true
 
   kind_config {
     kind        = "Cluster"
@@ -50,17 +50,51 @@ resource "kind_cluster" "mona_cluster" {
       extra_port_mappings {
         container_port = 30080
         host_port      = 30080
-    }
-    extra_port_mappings {
+      }
+      extra_port_mappings {
         container_port = 30091
         host_port      = 30091
-    }
-    extra_port_mappings {
+      }
+      extra_port_mappings {
         container_port = 30300
         host_port      = 30300
+      }
     }
   }
 }
+
+
+
+resource "helm_release" "loki_stack" {
+  name             = "loki-stack"
+  repository       = "https://grafana.github.io/helm-charts"
+  chart            = "loki-stack"
+  version          = "2.10.2"
+  namespace        = "mona"
+  create_namespace = true
+
+  set {
+    name  = "loki.enabled"
+    value = "true"
+  }
+  set {
+    name  = "promtail.enabled"
+    value = "true"
+  }
+  set {
+    name  = "grafana.enabled"
+    value = "false" # grafana уже есть в mona
+  }
+  set {
+    name  = "grafana.sidecar.datasources.enabled"
+    value = "false"
+  }
+  set {
+    name  = "loki.isDefault"
+    value = "false"
+  }
+
+  depends_on = [kind_cluster.mona_cluster]
 }
 
 resource "helm_release" "mona_app" {
@@ -75,17 +109,28 @@ resource "helm_release" "mona_app" {
   ]
 
   set_sensitive {
-  name  = "postgres.auth.password"
-  value = random_password.postgres_password.result
-}
-set_sensitive {
-  name  = "celeryWorker.env.DATABASE_URL"
-  value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
-}
-set_sensitive {
-  name  = "fastapi.env.DATABASE_URL"
-  value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
-}
+    name  = "postgres.auth.password"
+    value = random_password.postgres_password.result
+  }
+  set_sensitive {
+    name  = "celeryWorker.env.DATABASE_URL"
+    value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
+  }
+  set_sensitive {
+    name  = "fastapi.env.DATABASE_URL"
+    value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
+  }
+
+  set_sensitive {
+    name  = "kube-prometheus-stack.alertmanager.config.receivers[1].telegram_configs[0].bot_token"
+    value = var.telegram_bot_token
+  }
+  set_sensitive {
+    name  = "kube-prometheus-stack.alertmanager.config.receivers[1].telegram_configs[0].chat_id"
+    value = var.telegram_chat_id
+  }
+
+  depends_on = [helm_release.loki_stack]
 }
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────

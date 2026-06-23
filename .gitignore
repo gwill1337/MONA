@@ -3,6 +3,7 @@
 .terraform.lock.hcl
 terraform.tfstate
 terraform.tfstate.backup
+terraform.tfvars
 *.tfvars
 *.tfvars.json
 override.tf
@@ -12,7 +13,13 @@ override.tf.json
 celerybeat-schedule
 terraform.tfstate.backup
 terraform.tfstate
+tfplan
 
+
+kube_prom_matches.txt
+kube_prom_values.txt
+loki_stack_matches.txt
+loki_stack_values.txt
 
 # Python
 __pycache__/
