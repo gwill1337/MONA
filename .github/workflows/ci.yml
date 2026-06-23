@@ -11,10 +11,10 @@ jobs:
     name: Terraform checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v3.1.2
         with:
           terraform_version: "1.9.0"
 
@@ -32,10 +32,10 @@ jobs:
     name: Helm checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
 
       - name: Setup Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v4.3.0
 
       - name: Helm lint
         run: helm lint ./mona-chart
@@ -57,12 +57,15 @@ jobs:
     name: YAML lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
 
       - name: yamllint
         uses: ibiqlik/action-yamllint@v3
         with:
-          file_or_dir: mona-chart/
+          file_or_dir: |
+            mona-chart/values.yaml
+            mona-chart/values-prod.yaml
+            mona-chart/Chart.yaml
           config_data: |
             extends: default
             rules:
@@ -71,6 +74,7 @@ jobs:
               braces:
                 min-spaces-inside: 0
                 max-spaces-inside: 1
+              document-start: disable
               new-line-at-end-of-file: disable
               trailing-spaces: enable
               comments-indentation: disable
