@@ -69,7 +69,6 @@ jobs:
               line-length:
                 max: 200
               braces:
-                forbid-flow-sequences: false
                 min-spaces-inside: 0
                 max-spaces-inside: 1
               new-line-at-end-of-file: disable
