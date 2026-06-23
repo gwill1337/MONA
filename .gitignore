@@ -12,6 +12,7 @@ override.tf.json
 # Kubernetes
 k8s
 mona-config
+*.kubeconfig
 
 # Else
 celerybeat-schedule

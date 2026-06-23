@@ -32,7 +32,14 @@ For detailed information about the tables, see [db.py](https://github.com/gwill1
 * **Anomaly:** stores detected anomalies.
 * **TrainedModel:** stores trained models.
 
- 
+## CI
+Automated checks run on every push and pull request:
+
+* **Terraform** — format and validation checks
+* **Helm** — lint and Kubernetes schema validation via kubeconform
+* **YAML** — lint for values and chart files
+<!-- * **Python** — ruff lint and format checks -->
+
 ## Set Up
 
 `Set up node-exporter on the device you want to monitor.`   

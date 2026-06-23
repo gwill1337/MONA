@@ -2,13 +2,6 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
  - role: control-plane
-  #  kubeadmConfigPatches:
-  #    - |
-  #      kind: InitConfiguration
-  #      nodeRegistration:
-  #        kubeletExtraArgs:
-  #          node-labels: "ingress-ready=true"
-
    extraPortMappings:
      - containerPort: 30080
        hostPort: 30080
@@ -16,10 +9,6 @@ nodes:
        hostPort: 30090
      - containerPort: 30300
        hostPort: 30300
-    #  - containerPort: 80
-    #    hostPort: 80
-    #  - containerPort: 443
-    #    hostPort: 443
  - role: worker
    labels:
      app: postgres

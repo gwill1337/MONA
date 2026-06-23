@@ -1,46 +1,3 @@
-
-# import psutil
-# from time import sleep
-
-# from celery_conf import app
-# from db import SessionLocal, Metric, Base, engine
-
-
-
-
-# # @app.task
-# # def collect_metrics():
-# #     cpu = psutil.cpu_percent(interval=1)
-# #     ram = psutil.virtual_memory().percent
-# #     return cpu, ram
-        
-
-# # def save_metric(cpu, ram):
-# #     db = SessionLocal()
-# #     metric = Metric(cpu=cpu, ram=ram)
-# #     db.add(metric)
-# #     db.commit()
-# #     db.close()
-
-# # @app.task
-# # def collect_and_save():
-# #     cpu, ram = collect_metrics()
-# #     save_metric(cpu, ram)
-
-# @app.task  # ← ДЕКОРАТОР!
-# def collect_and_save():
-#     db = SessionLocal()
-#     cpu = psutil.cpu_percent(interval=1)
-#     ram = psutil.virtual_memory().percent
-    
-#     metric = Metric(cpu=cpu, ram=ram)
-#     db.add(metric)
-#     db.commit()
-#     db.close()
-    
-#     return {"cpu": cpu, "ram": ram}
-
-
 import os
 
 import requests
@@ -51,13 +8,13 @@ PROMETHEUS_URL = os.getenv(
     "PROMETHEUS_URL",
     "http://prometheus-main-metrics.mona.svc:9090",
 )
-# Совпадает с job в ConfigMap кастомного Prometheus (global.externalPcExporter.jobName).
+# Matches the job in the custom Prometheus ConfigMap (global.externalPcExporter.jobName).
 PC_EXPORTER_JOB = os.getenv("PROMETHEUS_PC_JOB", "external-pc-node-exporter")
 
 
 @app.task
 def collect_and_save():
-    """Метрики CPU/RAM с физического ПК через кастомный Prometheus (лейбл physical_pc)."""
+    """CPU/RAM metrics from a physical PC via custom Prometheus (physical_pc label)."""
     db = SessionLocal()
 
     try:
@@ -90,7 +47,7 @@ def collect_and_save():
         ram_data = ram_response.json()
         ram = float(ram_data['data']['result'][0]['value'][1]) if ram_data['data']['result'] else 0
         
-        # Сохраните в БД
+        # Save to DB
         metric = Metric(cpu=cpu, ram=ram)
         db.add(metric)
         db.commit()

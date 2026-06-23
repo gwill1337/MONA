@@ -69,7 +69,7 @@ def model_info():
             .first()
         )
         if record is None:
-            return {"status": "no_model", "message": "Модель ещё не обучена вручную. Используется авто-режим."}
+            return {"status": "no_model", "message": "Model is not manually trained yet. Using auto-mode."}
         return {
             "status": "ok",
             "model": {
@@ -87,12 +87,12 @@ def model_info():
 
 @app.post("/train")
 def train_model(
-    hours: float = Query(default=1.0, description="За сколько последних часов брать данные для обучения"),
-    note: str = Query(default="",description="Комментарий (необязательно)"),
+    hours: float = Query(default=1.0, description="Hours of recent data to use for training"),
+    note: str = Query(default="",description="Comment (optional)"),
     ):
     """
-    Обучает модель на данных за последние N часов.
-    Эти данные считаются "нормой" — потом модель будет искать отклонения от них.
+    Trains the model on data from the last N hours.
+    This data is considered the "norm" — later the model will look for deviations from it.
     """
     db = SessionLocal()
     try:
@@ -108,7 +108,7 @@ def train_model(
         if len(rows) < 30:
             return JSONResponse(
                 status_code=400,
-                content={"status": "error", "message": f"Недостаточно данных для обучения (нашлось {len(rows)}, нужно минимум 30)"},
+                content={"status": "error", "message": f"Not enough data for training (found {len(rows)}, minimum 30 required)"},
             )
         
         X_raw = _build_features(rows)
@@ -137,7 +137,7 @@ def train_model(
 
         return {
             "status": "ok",
-            "message": f"Модель обучена на {len(rows)} точках за последние {hours} ч.",
+            "message": f"Model trained on {len(rows)} points over the last {hours} h.",
             "period_from": rows[0].timestamp,
             "period_to": rows[-1].timestamp,
             "points_count": len(rows),
@@ -152,12 +152,12 @@ def train_model(
 
 @app.delete("/model")
 def delete_model():
-    """Удаляет пользовательскую модель — Celery вернётся в авто-режим."""
+    """Deletes the custom model — Celery will return to auto-mode."""
     db = SessionLocal()
     try:
         deleted = db.query(TrainedModel).filter(TrainedModel.trained_by == "user").delete()
         db.commit()
-        return {"status": "ok", "deleted": deleted, "message": "Модель удалена. Celery перешёл в авто-режим."}
+        return {"status": "ok", "deleted": deleted, "message": "Model deleted. Celery switched to auto-mode."}
     finally:
         db.close()
 
@@ -176,7 +176,7 @@ async def get_dashboard(hours: int = 1):
         metrics   = q_m.order_by(Metric.timestamp).all()
         anomalies = q_a.order_by(Anomaly.timestamp).all()
  
-        # Инфо о модели
+        # Model info
         model_record = (
             db.query(TrainedModel)
             .filter(TrainedModel.trained_by == "user")
@@ -203,22 +203,22 @@ async def get_dashboard(hours: int = 1):
     fig.add_trace(go.Scatter(x=times, y=ram_values, mode='lines', name='RAM %',
                              line=dict(color='#3498db', width=1.5)))
     if anomalies:
-        fig.add_trace(go.Scatter(x=a_times, y=a_cpu, mode='markers', name='⚠️ Аномалия (CPU)',
+        fig.add_trace(go.Scatter(x=a_times, y=a_cpu, mode='markers', name='⚠️ Anomaly (CPU)',
             marker=dict(color='red', size=10, symbol='x', line=dict(width=2, color='darkred')),
             text=a_text, hovertemplate='%{text}<extra></extra>'))
-        fig.add_trace(go.Scatter(x=a_times, y=a_ram, mode='markers', name='⚠️ Аномалия (RAM)',
+        fig.add_trace(go.Scatter(x=a_times, y=a_ram, mode='markers', name='⚠️ Anomaly (RAM)',
             marker=dict(color='orange', size=10, symbol='x', line=dict(width=2, color='darkorange')),
             text=a_text, hovertemplate='%{text}<extra></extra>'))
  
-    label = f"последние {hours} ч." if hours > 0 else "всё время"
+    label = f"last {hours} h." if hours > 0 else "all time"
     fig.update_layout(
-        title=f'CPU & RAM — {label}  |  аномалий: {len(anomalies)}',
-        xaxis_title='Время', yaxis_title='Использование (%)',
+        title=f'CPU & RAM — {label}  |  anomalies: {len(anomalies)}',
+        xaxis_title='Time', yaxis_title='Usage (%)',
         yaxis=dict(range=[0, 105]), template='plotly_white',
         legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
     )
  
-    # ── Блок модели ──
+    # ── Model block ──
     if model_record:
         trained_str = model_record.trained_at.strftime("%d.%m.%Y %H:%M")
         pfrom = model_record.period_from.strftime("%H:%M:%S") if model_record.period_from else "—"
@@ -226,20 +226,20 @@ async def get_dashboard(hours: int = 1):
         note_str = f"<br><small>📝 {model_record.note}</small>" if model_record.note else ""
         model_block = f"""
         <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
-            <span>🧠 <b>Модель:</b> обучена вручную {trained_str} &nbsp;·&nbsp;
-            {model_record.points_count} точек &nbsp;·&nbsp; период {pfrom} → {pto}
+            <span>🧠 <b>Model:</b> manually trained {trained_str} &nbsp;·&nbsp;
+            {model_record.points_count} points &nbsp;·&nbsp; period {pfrom} → {pto}
             {note_str}</span>
             <button onclick="deleteModel()" style="margin-left:auto;background:#ef5350;color:white;border:none;padding:6px 14px;border-radius:4px;cursor:pointer">
-                🗑 Сбросить модель
+                Reset model
             </button>
         </div>"""
     else:
         model_block = """
         <div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:6px;padding:12px 16px;margin-bottom:16px">
-            ⚙️ <b>Авто-режим:</b> модель обучается на лету. Обучите вручную на "чистом" периоде для лучших результатов.
+            <b>Auto-mode:</b> model trains on the fly. Train manually on a "clean" period for best results.
         </div>"""
  
-    # ── Таблица аномалий ──
+    # ── Anomalies table ──
     anomaly_rows = ""
     for a in reversed(anomalies[-20:]):
         ts = a.timestamp.strftime("%d.%m %H:%M:%S")
@@ -250,17 +250,17 @@ async def get_dashboard(hours: int = 1):
     anomaly_section = ""
     if anomaly_rows:
         anomaly_section = f"""
-        <h2 style="margin-top:30px">⚠️ Последние аномалии</h2>
+        <h2 style="margin-top:30px">⚠️ Latest anomalies</h2>
         <table border="1" cellpadding="6" cellspacing="0"
                style="border-collapse:collapse;font-family:monospace;font-size:13px">
             <thead style="background:#f0f0f0">
-                <tr><th>Время</th><th>CPU</th><th>RAM</th><th>Причина</th><th>Score</th></tr>
+                <tr><th>Time</th><th>CPU</th><th>RAM</th><th>Reason</th><th>Score</th></tr>
             </thead>
             <tbody>{anomaly_rows}</tbody>
         </table>
-        <p style="font-size:12px;color:#888">Score: чем ниже — тем сильнее аномалия</p>"""
+        <p style="font-size:12px;color:#888">Score: the lower, the stronger the anomaly</p>"""
     else:
-        anomaly_section = "<p style='color:green'>✅ Аномалий за выбранный период не обнаружено</p>"
+        anomaly_section = "<p style='color:green'>✅ No anomalies detected for the selected period</p>"
  
     return f"""
     <html>
@@ -283,22 +283,22 @@ async def get_dashboard(hours: int = 1):
  
         {model_block}
  
-        <!-- Форма обучения -->
+        <!-- Training form -->
         <div class="train-form">
-            <label>🎯 Обучить модель на "чистом" периоде:</label>
-            <label>Часов: <input type="number" id="train-hours" value="1" min="0.1" step="0.5"></label>
-            <label>Заметка: <input type="text" id="train-note" placeholder="например: низкая нагрузка"></label>
-            <button class="train-btn" onclick="trainModel()">▶ Обучить</button>
+            <label>Train model on a "clean" period:</label>
+            <label>Hours: <input type="number" id="train-hours" value="1" min="0.1" step="0.5"></label>
+            <label>Note: <input type="text" id="train-note" placeholder="e.g.: low load"></label>
+            <button class="train-btn" onclick="trainModel()">Train</button>
             <div id="train-result"></div>
         </div>
  
-        <!-- Период отображения -->
-        <label>Период:&nbsp;
+        <!-- Display period -->
+        <label>Period:&nbsp;
         <select onchange="location.href='/?hours=' + this.value">
-            <option value="1"   {'selected' if hours==1   else ''}>Последний час</option>
-            <option value="24"  {'selected' if hours==24  else ''}>Последние 24 часа</option>
-            <option value="168" {'selected' if hours==168 else ''}>7 дней</option>
-            <option value="0"   {'selected' if hours==0   else ''}>Всё время</option>
+            <option value="1"   {'selected' if hours==1   else ''}>Last hour</option>
+            <option value="24"  {'selected' if hours==24  else ''}>Last 24 hours</option>
+            <option value="168" {'selected' if hours==168 else ''}>7 days</option>
+            <option value="0"   {'selected' if hours==0   else ''}>All time</option>
         </select>
         </label>
  
@@ -310,7 +310,7 @@ async def get_dashboard(hours: int = 1):
             const hours = document.getElementById('train-hours').value;
             const note  = document.getElementById('train-note').value;
             const div   = document.getElementById('train-result');
-            div.textContent = '⏳ Обучаю...';
+            div.textContent = '⏳ Training...';
             try {{
                 const r = await fetch(`/train?hours=${{hours}}&note=${{encodeURIComponent(note)}}`, {{method:'POST'}});
                 const d = await r.json();
@@ -324,12 +324,12 @@ async def get_dashboard(hours: int = 1):
                 }}
             }} catch(e) {{
                 div.style.color = 'red';
-                div.textContent = '❌ Ошибка соединения';
+                div.textContent = '❌ Connection error';
             }}
         }}
  
         async function deleteModel() {{
-            if (!confirm('Сбросить модель и вернуться в авто-режим?')) return;
+            if (!confirm('Reset model and return to auto-mode?')) return;
             const r = await fetch('/model', {{method:'DELETE'}});
             const d = await r.json();
             alert(d.message);

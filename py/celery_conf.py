@@ -1,11 +1,6 @@
 from celery import Celery
 import os
 
-# app = Celery(
-#     "tasks",
-#     broker="redis://redis:6379",
-#     backend="redis://redis:6379"
-# )
 
 app = Celery("mona")
 
