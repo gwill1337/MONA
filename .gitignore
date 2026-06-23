@@ -9,6 +9,10 @@ terraform.tfvars
 override.tf
 override.tf.json
 
+# Kubernetes
+k8s
+mona-config
+
 # Else
 celerybeat-schedule
 terraform.tfstate.backup

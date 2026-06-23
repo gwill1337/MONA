@@ -1,8 +1,8 @@
 ---
 global:
   namespace: mona
-  # Метрики физического ПК: IP/hostname должны быть доступны ИЗ ПОДА Prometheus (firewall, маршрутизация).
-  # На ПК: node_exporter (или windows_exporter) слушает 0.0.0.0:port.
+  # Metrics for physical PC: IP/hostname must be accessible FROM Prometheus POD (firewall, routing).
+  # On the PC: node_exporter (or windows_exporter) listens on 0.0.0.0:port.
   externalPcExporter:
     host: "10.0.0.7"
     port: 9100
@@ -76,13 +76,11 @@ redis:
     port: 6379
   persistence:
     enabled: true
-    # hostPath для локалки, в prod лучше PVC
     hostPath: /data/redisdata
   resources:
     requests: { cpu: "250m", memory: "256Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
 
-# Отдельный Prometheus (только chart mona): ПК + SD нод/подов. Не пересекается по именам с kube-prometheus-stack.
 prometheus:
   enabled: true
   replicas: 1
@@ -174,6 +172,6 @@ kube-prometheus-stack:
               maxLines: 1000
   prometheus:
     enabled: true
-  # Внешний ПК скрейпится отдельным prometheus-main-metrics (templates/prometheus-*.yaml).
+  # External node exporter for monitoring physical PC metrics.
   nodeExporter:
     enabled: true
