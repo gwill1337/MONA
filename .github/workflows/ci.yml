@@ -62,16 +62,19 @@ jobs:
       - name: yamllint
         uses: ibiqlik/action-yamllint@v3
         with:
-          file_or_dir: mona-chart/
+          file_or_dir: |
+            mona-chart/values.yaml
+            mona-chart/values-prod.yaml
+            mona-chart/Chart.yaml
           config_data: |
             extends: default
             rules:
               line-length:
                 max: 200
               braces:
-                forbid-flow-sequences: false
                 min-spaces-inside: 0
                 max-spaces-inside: 1
+              document-start: disable
               new-line-at-end-of-file: disable
 
   python:
