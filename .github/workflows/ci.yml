@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  terraform:
+    name: Terraform checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"
+
+      - name: Terraform fmt
+        run: terraform fmt -check -recursive
+        working-directory: yaml
+
+      - name: Terraform validate
+        run: |
+          terraform init -backend=false
+          terraform validate
+        working-directory: yaml
+
+  helm:
+    name: Helm checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Helm lint
+        run: helm lint ./mona-chart
+
+      - name: Setup kubeconform
+        run: |
+          curl -L https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
+          sudo mv kubeconform /usr/local/bin/
+
+      - name: Kubeconform
+        run: |
+          helm template ./mona-chart | kubeconform \
+            -ignore-missing-schemas \
+            -summary \
+            -output pretty \
+            -
+            
+  yaml_lint:
+    name: YAML lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: yamllint
+        uses: ibiqlik/action-yamllint@v3
+        with:
+          file_or_dir: mona-chart/
+          config_data: |
+            extends: default
+            rules:
+              line-length:
+                max: 150
+              truthy:
+                allowed-values: ['true', 'false']
