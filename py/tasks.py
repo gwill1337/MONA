@@ -21,7 +21,7 @@ def collect_and_save():
     try:
         sel = f'job="{PC_EXPORTER_JOB}",physical_pc="true"'
         cpu_query = (
-            f"100 * (1 - avg(rate(node_cpu_seconds_total{{{sel},mode=\"idle\"}}[5m])))"
+            f'100 * (1 - avg(rate(node_cpu_seconds_total{{{sel},mode="idle"}}[5m])))'
         )
         cpu_response = requests.get(
             f"{PROMETHEUS_URL}/api/v1/query",
@@ -41,12 +41,14 @@ def collect_and_save():
             f"/ node_memory_MemTotal_bytes{{{sel}}})) * 100)"
         )
         ram_response = requests.get(
-            f"{PROMETHEUS_URL}/api/v1/query",
-            params={"query": ram_query},
-            timeout=5
+            f"{PROMETHEUS_URL}/api/v1/query", params={"query": ram_query}, timeout=5
         )
         ram_data = ram_response.json()
-        ram = float(ram_data['data']['result'][0]['value'][1]) if ram_data['data']['result'] else 0
+        ram = (
+            float(ram_data["data"]["result"][0]["value"][1])
+            if ram_data["data"]["result"]
+            else 0
+        )
 
         # Save to DB
         metric = Metric(cpu=cpu, ram=ram)

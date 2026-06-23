@@ -21,6 +21,7 @@ engine = create_engine(DATABASE)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
 
+
 class Metric(Base):
     __tablename__ = "metrics"
     id = Column(Integer, primary_key=True)
@@ -39,6 +40,7 @@ class Anomaly(Base):
     reason = Column(String)
     score = Column(Float)
     detected_at = Column(DateTime, default=lambda: datetime.now(UTC))
+
 
 class TrainedModel(Base):
     __tablename__ = "trained_models"

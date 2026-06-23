@@ -29,6 +29,7 @@ CONTAMINATION = 0.05
 
 # -------- helpers --------
 
+
 def _build_features(rows):
     """
     Builds a feature matrix with deltas.
@@ -42,8 +43,8 @@ def _build_features(rows):
     ram_d1 = np.concatenate([[0], np.diff(ram)])
 
     # Delta from 5 points ago
-    cpu_d5 = np.concatenate([[0]*5, cpu[5:] - cpu[:-5]])
-    ram_d5 = np.concatenate([[0]*5, ram[5:] - ram[:-5]])
+    cpu_d5 = np.concatenate([[0] * 5, cpu[5:] - cpu[:-5]])
+    ram_d5 = np.concatenate([[0] * 5, ram[5:] - ram[:-5]])
 
     return np.column_stack([cpu, ram, cpu_d1, ram_d1, cpu_d5, ram_d5])
 
@@ -70,7 +71,9 @@ def _describe_reason(row, cpu_d1, ram_d1, cpu_d5, ram_d5):
         parts.append(f"ram вырос на {ram_d5:.1f}% за 25 сек")
 
     if not parts:
-        parts.append(f"комбинированная аномалия (cpu={row.cpu:.1f}%, ram={row.ram:.1f}%)")
+        parts.append(
+            f"комбинированная аномалия (cpu={row.cpu:.1f}%, ram={row.ram:.1f}%)"
+        )
 
     return ", ".join(parts)
 
@@ -91,12 +94,12 @@ def _load_user_model(db):
 
 # -------- celery task --------
 
+
 @app.task
 def detect_anomalies():
     """Detects anomalies in the last WINDOW metric points."""
     db = SessionLocal()
     try:
-
         cutoff_new = datetime.now(UTC) - timedelta(minutes=2)
 
         rows = (
@@ -110,7 +113,7 @@ def detect_anomalies():
         if len(rows) < MIN_POINTS:
             return {
                 "status": "skipped",
-                "reason": f"мало данных ({len(rows)} точек, нужно {MIN_POINTS}+)"
+                "reason": f"мало данных ({len(rows)} точек, нужно {MIN_POINTS}+)",
             }
 
         rows = list(reversed(rows))
@@ -119,16 +122,16 @@ def detect_anomalies():
 
         if user_model is not None:
             # ── Mode 1: custom user model ──
-            X_all = _build_features(rows) # noqa: N806
-            X_scaled = user_scaler.transform(X_all) # noqa: N806
+            X_all = _build_features(rows)  # noqa: N806
+            X_scaled = user_scaler.transform(X_all)  # noqa: N806
             preds = user_model.predict(X_scaled)
             scores = user_model.decision_function(X_scaled)
-            mode ="user_model"
+            mode = "user_model"
         else:
             # ── Mode 2: on-the-fly training (fallback) ──
-            X_all = _build_features(rows) # noqa: N806
+            X_all = _build_features(rows)  # noqa: N806
             scaler = StandardScaler()
-            X_scaled = scaler.fit_transform(X_all) # noqa: N806
+            X_scaled = scaler.fit_transform(X_all)  # noqa: N806
             model = IsolationForest(
                 n_estimators=200,
                 contamination=CONTAMINATION,
@@ -138,9 +141,7 @@ def detect_anomalies():
             scores = model.decision_function(X_scaled)
             mode = "auto"
 
-        existing_ids = {
-            a.metric_id for a in db.query(Anomaly.metric_id).all()
-        }
+        existing_ids = {a.metric_id for a in db.query(Anomaly.metric_id).all()}
 
         new_anomalies = []
         for i, row in enumerate(rows):
@@ -149,7 +150,7 @@ def detect_anomalies():
             if preds[i] != -1 or row.id in existing_ids:
                 continue
 
-            X_raw = _build_features(rows) # noqa: N806
+            X_raw = _build_features(rows)  # noqa: N806
 
             reason = _describe_reason(
                 row,
@@ -159,14 +160,16 @@ def detect_anomalies():
                 ram_d5=X_raw[i, 5],
             )
 
-            new_anomalies.append(Anomaly(
-                metric_id=row.id,
-                cpu=row.cpu,
-                ram=row.ram,
-                timestamp=row.timestamp,
-                reason=reason,
-                score=round(float(scores[i]), 4),
-            ))
+            new_anomalies.append(
+                Anomaly(
+                    metric_id=row.id,
+                    cpu=row.cpu,
+                    ram=row.ram,
+                    timestamp=row.timestamp,
+                    reason=reason,
+                    score=round(float(scores[i]), 4),
+                )
+            )
 
         if new_anomalies:
             db.bulk_save_objects(new_anomalies)

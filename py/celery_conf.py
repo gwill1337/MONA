@@ -14,16 +14,15 @@ app.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", database_url)
 app.conf.timezone = "UTC"
 
 
-app.conf.worker_pool = 'solo'
+app.conf.worker_pool = "solo"
 
 app.conf.beat_schedule = {
-    "collect" : {
-        "task" : "tasks.collect_and_save",
+    "collect": {
+        "task": "tasks.collect_and_save",
         "schedule": 5,
     },
-
-    "detect" : {
-        "task" : "ml.detect_anomalies",
+    "detect": {
+        "task": "ml.detect_anomalies",
         "schedule": 60,
     },
 }

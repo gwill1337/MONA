@@ -19,13 +19,14 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 # ─── helpers ────────────────────────────────────────────────────────────────
 
+
 def _build_features(rows):
     cpu = np.array([r.cpu for r in rows], dtype=float)
     ram = np.array([r.ram for r in rows], dtype=float)
     cpu_d1 = np.concatenate([[0], np.diff(cpu)])
     ram_d1 = np.concatenate([[0], np.diff(ram)])
-    cpu_d5 = np.concatenate([[0]*5, cpu[5:] - cpu[:-5]])
-    ram_d5 = np.concatenate([[0]*5, ram[5:] - ram[:-5]])
+    cpu_d5 = np.concatenate([[0] * 5, cpu[5:] - cpu[:-5]])
+    ram_d5 = np.concatenate([[0] * 5, ram[5:] - ram[:-5]])
     return np.column_stack([cpu, ram, cpu_d1, ram_d1, cpu_d5, ram_d5])
 
 
@@ -44,11 +45,20 @@ def get_anomalies(hours: int = 24):
     try:
         q = db.query(Anomaly)
         if hours > 0:
-            q = q.filter(Anomaly.timestamp >= datetime.now(UTC) - timedelta(hours=hours))
+            q = q.filter(
+                Anomaly.timestamp >= datetime.now(UTC) - timedelta(hours=hours)
+            )
         return [
-            {"id": a.id, "metric_id": a.metric_id, "cpu": a.cpu, "ram": a.ram,
-             "timestamp": a.timestamp, "reason": a.reason, "score": a.score,
-             "detected_at": a.detected_at}
+            {
+                "id": a.id,
+                "metric_id": a.metric_id,
+                "cpu": a.cpu,
+                "ram": a.ram,
+                "timestamp": a.timestamp,
+                "reason": a.reason,
+                "score": a.score,
+                "detected_at": a.detected_at,
+            }
             for a in q.order_by(Anomaly.timestamp.desc()).all()
         ]
     finally:
@@ -66,7 +76,10 @@ def model_info():
             .first()
         )
         if record is None:
-            return {"status": "no_model", "message": "Model is not manually trained yet. Using auto-mode."}
+            return {
+                "status": "no_model",
+                "message": "Model is not manually trained yet. Using auto-mode.",
+            }
         return {
             "status": "ok",
             "model": {
@@ -84,9 +97,11 @@ def model_info():
 
 @app.post("/train")
 def train_model(
-    hours: float = Query(default=1.0, description="Hours of recent data to use for training"),
-    note: str = Query(default="",description="Comment (optional)"),
-    ):
+    hours: float = Query(
+        default=1.0, description="Hours of recent data to use for training"
+    ),
+    note: str = Query(default="", description="Comment (optional)"),
+):
     """
     Trains the model on data from the last N hours.
     This data is considered the "norm" — later the model will look for deviations from it.
@@ -105,12 +120,15 @@ def train_model(
         if len(rows) < 30:
             return JSONResponse(
                 status_code=400,
-                content={"status": "error", "message": f"Not enough data for training (found {len(rows)}, minimum 30 required)"},
+                content={
+                    "status": "error",
+                    "message": f"Not enough data for training (found {len(rows)}, minimum 30 required)",
+                },
             )
 
-        X_raw = _build_features(rows) # noqa: N806
+        X_raw = _build_features(rows)  # noqa: N806
         scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X_raw) # noqa: N806
+        X_scaled = scaler.fit_transform(X_raw)  # noqa: N806
 
         model = IsolationForest(
             n_estimators=200,
@@ -142,7 +160,9 @@ def train_model(
 
     except Exception as e:
         db.rollback()
-        return JSONResponse(status_code=500, content={"status": "error", "message": str(e)})
+        return JSONResponse(
+            status_code=500, content={"status": "error", "message": str(e)}
+        )
     finally:
         db.close()
 
@@ -152,9 +172,15 @@ def delete_model():
     """Deletes the custom model — Celery will return to auto-mode."""
     db = SessionLocal()
     try:
-        deleted = db.query(TrainedModel).filter(TrainedModel.trained_by == "user").delete()
+        deleted = (
+            db.query(TrainedModel).filter(TrainedModel.trained_by == "user").delete()
+        )
         db.commit()
-        return {"status": "ok", "deleted": deleted, "message": "Model deleted. Celery switched to auto-mode."}
+        return {
+            "status": "ok",
+            "deleted": deleted,
+            "message": "Model deleted. Celery switched to auto-mode.",
+        }
     finally:
         db.close()
 
@@ -170,7 +196,7 @@ async def get_dashboard(hours: int = 1):
         if since:
             q_m = q_m.filter(Metric.timestamp >= since)
             q_a = q_a.filter(Anomaly.timestamp >= since)
-        metrics   = q_m.order_by(Metric.timestamp).all()
+        metrics = q_m.order_by(Metric.timestamp).all()
         anomalies = q_a.order_by(Anomaly.timestamp).all()
 
         # Model info
@@ -186,41 +212,93 @@ async def get_dashboard(hours: int = 1):
     if not metrics:
         return "<h1>No data available</h1>"
 
-    times      = [m.timestamp.strftime("%H:%M:%S") for m in metrics]
+    times = [m.timestamp.strftime("%H:%M:%S") for m in metrics]
     cpu_values = [m.cpu for m in metrics]
     ram_values = [m.ram for m in metrics]
-    a_times    = [a.timestamp.strftime("%H:%M:%S") for a in anomalies]
-    a_cpu      = [a.cpu for a in anomalies]
-    a_ram      = [a.ram for a in anomalies]
-    a_text     = [f"⚠️ {a.reason}<br>score: {a.score}" for a in anomalies]
+    a_times = [a.timestamp.strftime("%H:%M:%S") for a in anomalies]
+    a_cpu = [a.cpu for a in anomalies]
+    a_ram = [a.ram for a in anomalies]
+    a_text = [f"⚠️ {a.reason}<br>score: {a.score}" for a in anomalies]
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=times, y=cpu_values, mode='lines', name='CPU %',
-                             line=dict(color='#e74c3c', width=1.5)))
-    fig.add_trace(go.Scatter(x=times, y=ram_values, mode='lines', name='RAM %',
-                             line=dict(color='#3498db', width=1.5)))
+    fig.add_trace(
+        go.Scatter(
+            x=times,
+            y=cpu_values,
+            mode="lines",
+            name="CPU %",
+            line=dict(color="#e74c3c", width=1.5),
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=times,
+            y=ram_values,
+            mode="lines",
+            name="RAM %",
+            line=dict(color="#3498db", width=1.5),
+        )
+    )
     if anomalies:
-        fig.add_trace(go.Scatter(x=a_times, y=a_cpu, mode='markers', name='⚠️ Anomaly (CPU)',
-            marker=dict(color='red', size=10, symbol='x', line=dict(width=2, color='darkred')),
-            text=a_text, hovertemplate='%{text}<extra></extra>'))
-        fig.add_trace(go.Scatter(x=a_times, y=a_ram, mode='markers', name='⚠️ Anomaly (RAM)',
-            marker=dict(color='orange', size=10, symbol='x', line=dict(width=2, color='darkorange')),
-            text=a_text, hovertemplate='%{text}<extra></extra>'))
+        fig.add_trace(
+            go.Scatter(
+                x=a_times,
+                y=a_cpu,
+                mode="markers",
+                name="⚠️ Anomaly (CPU)",
+                marker=dict(
+                    color="red",
+                    size=10,
+                    symbol="x",
+                    line=dict(width=2, color="darkred"),
+                ),
+                text=a_text,
+                hovertemplate="%{text}<extra></extra>",
+            )
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=a_times,
+                y=a_ram,
+                mode="markers",
+                name="⚠️ Anomaly (RAM)",
+                marker=dict(
+                    color="orange",
+                    size=10,
+                    symbol="x",
+                    line=dict(width=2, color="darkorange"),
+                ),
+                text=a_text,
+                hovertemplate="%{text}<extra></extra>",
+            )
+        )
 
     label = f"last {hours} h." if hours > 0 else "all time"
     fig.update_layout(
-        title=f'CPU & RAM — {label}  |  anomalies: {len(anomalies)}',
-        xaxis_title='Time', yaxis_title='Usage (%)',
-        yaxis=dict(range=[0, 105]), template='plotly_white',
-        legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+        title=f"CPU & RAM — {label}  |  anomalies: {len(anomalies)}",
+        xaxis_title="Time",
+        yaxis_title="Usage (%)",
+        yaxis=dict(range=[0, 105]),
+        template="plotly_white",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
     )
 
     # ── Model block ──
     if model_record:
         trained_str = model_record.trained_at.strftime("%d.%m.%Y %H:%M")
-        pfrom = model_record.period_from.strftime("%H:%M:%S") if model_record.period_from else "—"
-        pto   = model_record.period_to.strftime("%H:%M:%S") if model_record.period_to else "—"
-        note_str = f"<br><small>📝 {model_record.note}</small>" if model_record.note else ""
+        pfrom = (
+            model_record.period_from.strftime("%H:%M:%S")
+            if model_record.period_from
+            else "—"
+        )
+        pto = (
+            model_record.period_to.strftime("%H:%M:%S")
+            if model_record.period_to
+            else "—"
+        )
+        note_str = (
+            f"<br><small>📝 {model_record.note}</small>" if model_record.note else ""
+        )
         model_block = f"""
         <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:6px;padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;gap:20px;flex-wrap:wrap">
             <span>🧠 <b>Model:</b> manually trained {trained_str} &nbsp;·&nbsp;
@@ -240,9 +318,11 @@ async def get_dashboard(hours: int = 1):
     anomaly_rows = ""
     for a in reversed(anomalies[-20:]):
         ts = a.timestamp.strftime("%d.%m %H:%M:%S")
-        color = 'red' if a.score < -0.1 else 'orange'
-        anomaly_rows += (f"<tr><td>{ts}</td><td>{a.cpu:.1f}%</td><td>{a.ram:.1f}%</td>"
-                         f"<td>{a.reason}</td><td style='color:{color}'>{a.score:.4f}</td></tr>")
+        color = "red" if a.score < -0.1 else "orange"
+        anomaly_rows += (
+            f"<tr><td>{ts}</td><td>{a.cpu:.1f}%</td><td>{a.ram:.1f}%</td>"
+            f"<td>{a.reason}</td><td style='color:{color}'>{a.score:.4f}</td></tr>"
+        )
 
     anomaly_section = ""
     if anomaly_rows:
@@ -292,14 +372,14 @@ async def get_dashboard(hours: int = 1):
         <!-- Display period -->
         <label>Period:&nbsp;
         <select onchange="location.href='/?hours=' + this.value">
-            <option value="1"   {'selected' if hours==1   else ''}>Last hour</option>
-            <option value="24"  {'selected' if hours==24  else ''}>Last 24 hours</option>
-            <option value="168" {'selected' if hours==168 else ''}>7 days</option>
-            <option value="0"   {'selected' if hours==0   else ''}>All time</option>
+            <option value="1"   {"selected" if hours == 1 else ""}>Last hour</option>
+            <option value="24"  {"selected" if hours == 24 else ""}>Last 24 hours</option>
+            <option value="168" {"selected" if hours == 168 else ""}>7 days</option>
+            <option value="0"   {"selected" if hours == 0 else ""}>All time</option>
         </select>
         </label>
 
-        {fig.to_html(include_plotlyjs='cdn', full_html=False)}
+        {fig.to_html(include_plotlyjs="cdn", full_html=False)}
         {anomaly_section}
 
         <script>
