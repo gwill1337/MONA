@@ -72,3 +72,5 @@ jobs:
                 min-spaces-inside: 0
                 max-spaces-inside: 1
               new-line-at-end-of-file: disable
+              trailing-spaces: enable
+              comments-indentation: disable
