@@ -3,10 +3,14 @@ global:
   namespace: mona
   # Metrics for physical PC: IP/hostname must be accessible FROM Prometheus POD (firewall, routing).
   # On the PC: node_exporter (or windows_exporter) listens on 0.0.0.0:port.
-  externalPcExporter:
-    host: "10.0.0.7"
-    port: 9100
-    jobName: "external-pc-node-exporter"
+  externalPcExporters:
+    - host: "10.0.0.7"
+      port: 9100
+      jobName: "pa-home"
+    - host: "10.0.0.8"
+      port: 9100
+      jobName: "pc-test"
+  
 
 images:
   fastapi:

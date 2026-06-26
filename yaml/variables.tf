@@ -7,3 +7,7 @@ variable "telegram_chat_id" {
   type      = string
   sensitive = true
 }
+
+# variable "exporters" {
+#   type = string
+# }

@@ -35,8 +35,8 @@ spec:
               value: {{ include "mona.redisUrl" . | quote }}
             - name: DATABASE_URL
               value: "postgresql://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password }}@postgres:{{ .Values.postgres.service.port }}/{{ .Values.postgres.auth.database }}"
-            - name: PROMETHEUS_PC_JOB
-              value: {{ .Values.global.externalPcExporter.jobName | quote }}
+            - name: EXPORTERS
+              value: "{{ range $i, $e := .Values.global.externalPcExporters }}{{ if $i }},{{ end }}{{ $e.jobName }}:{{ $e.host }}{{ end }}"
             - name: PROMETHEUS_URL
               value: "http://prometheus-main-metrics.{{ .Release.Namespace }}.svc:9090"
           resources:

@@ -19,8 +19,8 @@ import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 
-from py.celery_conf import app
-from py.db import Anomaly, Metric, SessionLocal, TrainedModel
+from celery_conf import app
+from db import Anomaly, Metric, SessionLocal, TrainedModel
 
 WINDOW = 500
 MIN_POINTS = 30

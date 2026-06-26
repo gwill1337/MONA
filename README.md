@@ -38,7 +38,7 @@ Automated checks run on every push and pull request:
 * **Terraform** — format and validation checks
 * **Helm** — lint and Kubernetes schema validation via kubeconform
 * **YAML** — lint for values and chart files
-<!-- * **Python** — ruff lint and format checks -->
+* **Python** — ruff lint and format checks
 
 ## Set Up
 

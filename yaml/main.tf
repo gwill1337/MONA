@@ -130,6 +130,11 @@ resource "helm_release" "mona_app" {
     value = var.telegram_chat_id
   }
 
+  set {
+    name = "celeryWorker.env.EXPORTERS"
+    value = "pc-home\\,pc-test"
+  }
+
   depends_on = [helm_release.loki_stack]
 }
 

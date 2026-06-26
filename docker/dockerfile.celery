@@ -5,6 +5,10 @@ WORKDIR /app
 COPY docker/requirements_celery.txt .
 RUN pip install -r requirements_celery.txt
 
-COPY celery_conf.py tasks.py ml.py db.py ./
+COPY . .
 
-CMD ["celery", "-A", "celery_conf.app", "worker", "--loglevel=info"]
+ENV PYTHONPATH=/app/mona_core
+
+# RUN touch py/__init__.py
+
+CMD ["celery", "-A", "celery_conf", "worker", "--loglevel=info"]

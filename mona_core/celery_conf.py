@@ -4,6 +4,11 @@ from celery import Celery
 
 app = Celery("mona")
 
+app = Celery(
+    "mona",
+    include=["tasks", "ml"]
+)
+
 app.conf.broker_url = os.getenv("REDIS_URL", "redis://redis:6379")
 
 database_url = os.getenv("DATABASE_URL", "postgresql://myuser:1234@postgres:5432/mydb")

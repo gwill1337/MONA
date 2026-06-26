@@ -3,13 +3,14 @@ from datetime import UTC, datetime, timedelta
 
 import numpy as np
 import plotly.graph_objects as go
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, APIRouter, Depends
 from fastapi.responses import HTMLResponse, JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+from sqlalchemy.orm import Session
 
-from py.db import Anomaly, Base, Metric, SessionLocal, TrainedModel, engine
+from mona_core.db import Anomaly, Base, Metric, SessionLocal, TrainedModel, engine, Device
 
 Base.metadata.create_all(engine)
 
@@ -32,18 +33,49 @@ def _build_features(rows):
 
 # ─── API endpoints ──────────────────────────────────────────────────────────
 @app.get("/db-metrics")
-def get_metrics():
+def get_metrics(device: str = None):
     db = SessionLocal()
-    data = db.query(Metric).all()
-    db.close()
-    return data
+    try:
+        data = db.query(Metric)
+        if device:
+            data = data.filter(Metric.device == device)
+        return data.all()
+    finally:
+        db.close()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# Сам эндпоинт, куда будет стучаться Prometheus
+@app.get("/api/prometheus/targets")
+def get_prometheus_targets(db: Session = Depends(get_db)):
+    # Берем только активные ПК, у которых указан IP-адрес
+    devices = db.query(Device).filter(Device.is_active == True, Device.ip != None).all()
+    
+    targets = []
+    for dev in devices:
+        targets.append({
+            "targets": [f"{dev.ip}:9100"], # Куда стучаться (IP + порт node_exporter)
+            "labels": {
+                "job": dev.name,           # Имя для привязки метрик (pa-home, pc-test)
+                "physical_pc": "true",
+                "device_label": dev.name
+            }
+        })
+    return targets
 
 
 @app.get("/anomalies")
-def get_anomalies(hours: int = 24):
+def get_anomalies(hours: int = 24, device: str = None):
     db = SessionLocal()
     try:
         q = db.query(Anomaly)
+        if device:
+            q = q.filter(Anomaly.device == device)
         if hours > 0:
             q = q.filter(
                 Anomaly.timestamp >= datetime.now(UTC) - timedelta(hours=hours)
@@ -187,15 +219,26 @@ def delete_model():
 
 # ─── Dashboard ──────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse)
-async def get_dashboard(hours: int = 1):
+async def get_dashboard(hours: int = 1, device: str = None):
     db = SessionLocal()
     try:
+        devices = [r[0] for r in db.query(Metric.device).distinct().all()]
+
+        device_options = "".join([
+            f'<option value="{d}" {"selected" if device == d else ""}>{d}</option>'
+            for d in devices
+        ])
+
         since = datetime.now(UTC) - timedelta(hours=hours) if hours > 0 else None
         q_m = db.query(Metric)
         q_a = db.query(Anomaly)
+        if device:
+            q_m = q_m.filter(Metric.device == device)
+            q_a = q_a.filter(Anomaly.device == device)
         if since:
             q_m = q_m.filter(Metric.timestamp >= since)
             q_a = q_a.filter(Anomaly.timestamp >= since)
+
         metrics = q_m.order_by(Metric.timestamp).all()
         anomalies = q_a.order_by(Anomaly.timestamp).all()
 
@@ -368,6 +411,13 @@ async def get_dashboard(hours: int = 1):
             <button class="train-btn" onclick="trainModel()">Train</button>
             <div id="train-result"></div>
         </div>
+
+        <label>Device:&nbsp;
+        <select onchange="location.href='/?hours={hours}&device=' + this.value">
+            <option value="">All devices</option>
+            {device_options}
+        </select>
+        </label>
 
         <!-- Display period -->
         <label>Period:&nbsp;
