@@ -4,17 +4,19 @@ from celery import Celery
 
 app = Celery("mona")
 
+redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+
 app = Celery(
     "mona",
-    include=["tasks", "ml"]
+    include=["tasks", "ml"],
+    broker=redis_url,
+    backend=redis_url,
 )
 
-app.conf.broker_url = os.getenv("REDIS_URL", "redis://redis:6379")
 
 database_url = os.getenv("DATABASE_URL", "postgresql://myuser:1234@postgres:5432/mydb")
 if not database_url.startswith("db+"):
     database_url = f"db+{database_url}"
-app.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", database_url)
 
 app.conf.timezone = "UTC"
 

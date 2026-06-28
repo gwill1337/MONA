@@ -1,8 +1,8 @@
 fastapi
 uvicorn
-plotly
 sqlalchemy
 psycopg2-binary
 prometheus_fastapi_instrumentator
-scikit-learn
-numpy
+requests
+celery
+redis

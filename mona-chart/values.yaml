@@ -4,9 +4,9 @@ global:
   # Metrics for physical PC: IP/hostname must be accessible FROM Prometheus POD (firewall, routing).
   # On the PC: node_exporter (or windows_exporter) listens on 0.0.0.0:port.
   externalPcExporters:
-    - host: "10.0.0.7"
+    - host: "10.0.0.10"
       port: 9100
-      jobName: "pa-home"
+      jobName: "pc-home"
     - host: "10.0.0.8"
       port: 9100
       jobName: "pc-test"
@@ -15,6 +15,10 @@ global:
 images:
   fastapi:
     repository: gwill1337/mona-fastapi
+    tag: latest
+    pullPolicy: Always
+  react:
+    repository: gwill1337/mona-react
     tag: latest
     pullPolicy: Always
   celery:
@@ -41,6 +45,29 @@ fastapi:
     port: 80
     targetPort: 80
     nodePort: 30080
+  livenessProbe:
+    httpGet:
+      path: /health/live
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health/ready
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+
+react:
+  replicas: 1
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 80
+    nodePort: 30081
   resources:
     requests: { cpu: "100m", memory: "128Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
@@ -99,6 +126,9 @@ prometheus:
 
 monitoring:
   enabled: true
+
+ingress:
+  enabled: false
 
 kube-prometheus-stack:
   alertmanager:

@@ -9,6 +9,18 @@ spec:
     matchLabels:
       app: fastapi
   template:
+    livenessProbe:
+      httpGet:
+        path: {{ .Values.fastapi.livenessProbe.httpGet.path }}
+        port: {{ .Values.fastapi.livenessProbe.httpGet.port }}
+      initialDelaySeconds: {{ .Values.fastapi.livenessProbe.initialDelaySeconds }}
+      periodSeconds: {{ .Values.fastapi.livenessProbe.periodSeconds }}
+    readinessProbe:
+      httpGet:
+        path: {{ .Values.fastapi.readinessProbe.httpGet.path }}
+        port: {{ .Values.fastapi.readinessProbe.httpGet.port }}
+      initialDelaySeconds: {{ .Values.fastapi.readinessProbe.initialDelaySeconds }}
+      periodSeconds: {{ .Values.fastapi.readinessProbe.periodSeconds }}
     metadata:
       labels:
         app: fastapi

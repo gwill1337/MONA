@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-react
+spec:
+  replicas: {{ .Values.react.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-react
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-react
+    spec:
+      containers:
+        - name: react
+          image: "{{ .Values.images.react.repository }}:{{ .Values.images.react.tag }}"
+          imagePullPolicy: {{ .Values.images.react.pullPolicy }}
+          ports:
+            - containerPort: 80
+          resources:
+            {{- toYaml .Values.react.resources | nindent 12 }}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-react
+spec:
+  type: {{ .Values.react.service.type }}
+  ports:
+    - port: {{ .Values.react.service.port }}
+      targetPort: 80
+      {{- if eq .Values.react.service.type "NodePort" }}
+      nodePort: {{ .Values.react.service.nodePort }}
+      {{- end }}
+  selector:
+    app: {{ .Release.Name }}-react

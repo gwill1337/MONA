@@ -59,6 +59,10 @@ resource "kind_cluster" "mona_cluster" {
         container_port = 30300
         host_port      = 30300
       }
+      extra_port_mappings {
+        container_port = 30081
+        host_port      = 30081
+      }
     }
   }
 }
@@ -128,11 +132,6 @@ resource "helm_release" "mona_app" {
   set_sensitive {
     name  = "kube-prometheus-stack.alertmanager.config.receivers[1].telegram_configs[0].chat_id"
     value = var.telegram_chat_id
-  }
-
-  set {
-    name = "celeryWorker.env.EXPORTERS"
-    value = "pc-home\\,pc-test"
   }
 
   depends_on = [helm_release.loki_stack]

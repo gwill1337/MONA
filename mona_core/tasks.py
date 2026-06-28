@@ -1,9 +1,12 @@
 import os
-
+import pickle
 import requests
+from datetime import UTC, datetime, timedelta
 
 from celery_conf import app
-from db import Device, Metric, SessionLocal
+from db import Device, Metric, SessionLocal, TrainedModel
+
+# ─── Helpers ────────────────────────────────────────────────────────────────
 
 PROMETHEUS_URL = os.getenv(
     "PROMETHEUS_URL",
@@ -23,6 +26,18 @@ def _query(prometheus_url: str, query: str) -> float:
         else 0
     )
 
+def _build_features(rows):
+    import numpy as np
+
+    cpu = np.array([r.cpu for r in rows], dtype=float)
+    ram = np.array([r.ram for r in rows], dtype=float)
+    cpu_d1 = np.concatenate([[0], np.diff(cpu)])
+    ram_d1 = np.concatenate([[0], np.diff(ram)])
+    cpu_d5 = np.concatenate([[0] * 5, cpu[5:] - cpu[:-5]])
+    ram_d5 = np.concatenate([[0] * 5, ram[5:] - ram[:-5]])
+    return np.column_stack([cpu, ram, cpu_d1, ram_d1, cpu_d5, ram_d5])
+
+# ─── Tasks ──────────────────────────────────────────────────────────────────
 
 @app.task(name="tasks.collect_and_save")
 def collect_and_save():
@@ -70,5 +85,63 @@ def collect_and_save():
     except Exception as e:
         print(f"Error collecting metrics: {e}")
         return {"error": str(e)}
+    finally:
+        db.close()
+
+@app.task(name="tasks.train_model_task")
+def train_model_task(hours: float, note: str):
+    from sklearn.ensemble import IsolationForest
+    from sklearn.preprocessing import StandardScaler
+
+    db = SessionLocal()
+    try:
+        since = datetime.now(UTC) - timedelta(hours=hours)
+        rows = (
+            db.query(Metric)
+            .filter(Metric.cpu > 0.1)
+            .filter(Metric.timestamp >= since)
+            .order_by(Metric.timestamp)
+            .all()
+        )
+
+        if len(rows) < 30:
+            return {
+                "status": "error",
+                "message": f"Not enough data for training (found {len(rows)}, minimum 30 required)"
+            }
+        
+        X_raw = _build_features(rows)  # noqa: N806
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X_raw)  # noqa: N806
+
+        model = IsolationForest(
+            n_estimators=200,
+            contamination=0.03,
+            random_state=42,
+        )
+        model.fit(X_scaled)
+
+        model_bytes = pickle.dumps((model, scaler))
+
+        record = TrainedModel(
+            model_data=model_bytes,
+            trained_by="user",
+            points_count=len(rows),
+            period_from=rows[0].timestamp,
+            period_to=rows[-1].timestamp,
+            note=note.strip() or None,
+        )
+        db.add(record)
+        db.commit()
+
+        return {
+            "status": "success",
+            "message": f"Model trained on {len(rows)} points over the last {hours} h."
+        }
+    
+
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
     finally:
         db.close()
