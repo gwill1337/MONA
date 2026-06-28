@@ -31,6 +31,7 @@ MONA is a K8s-based monitoring and analytics tool managed with Terraform and Hel
 
 <details>
 <summary><b>Click to view detailed API endpoints</b></summary>
+
 ### API:
 * main-metrics: `localhost:30080/db-metrics`
 * prometheus targets: `localhost:30080/api/prometheus/targets`
@@ -42,6 +43,7 @@ MONA is a K8s-based monitoring and analytics tool managed with Terraform and Hel
 * train(post): `localhost:30080/train` *available via curl*
 * model(delete): `localhost:30080/model` *available via curl*
 * dashboard: `localhost:30080/api/dashboard`
+
 </details>
 
 ![admin panel](https://github.com/gwill1337/Images/blob/main/MONA/admin.gif)
