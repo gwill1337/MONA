@@ -1,8 +1,8 @@
 import os
 import pickle
-import requests
 from datetime import UTC, datetime, timedelta
 
+import requests
 from celery_conf import app
 from db import Device, Metric, SessionLocal, TrainedModel
 
@@ -109,7 +109,7 @@ def train_model_task(hours: float, note: str):
                 "status": "error",
                 "message": f"Not enough data for training (found {len(rows)}, minimum 30 required)"
             }
-        
+
         X_raw = _build_features(rows)  # noqa: N806
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X_raw)  # noqa: N806
@@ -138,7 +138,7 @@ def train_model_task(hours: float, note: str):
             "status": "success",
             "message": f"Model trained on {len(rows)} points over the last {hours} h."
         }
-    
+
 
     except Exception as e:
         db.rollback()

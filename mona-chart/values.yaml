@@ -10,7 +10,6 @@ global:
     - host: "10.0.0.8"
       port: 9100
       jobName: "pc-test"
-  
 
 images:
   fastapi:

@@ -1,14 +1,15 @@
-from datetime import UTC, datetime, timedelta
 import os
+from datetime import UTC, datetime, timedelta
+
+from celery import Celery
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 from sqlalchemy import text
-from celery import Celery
-# from mona_core.tasks import train_model_task
+from sqlalchemy.orm import Session
 
+# from mona_core.tasks import train_model_task
 from mona_core.db import (
     Anomaly,
     Base,
@@ -58,7 +59,7 @@ def readiness_probe(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1"))
         return {"status" : "ready"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
 # ─── Devices ────────────────────────────────────────────────────────────────
@@ -174,7 +175,7 @@ def train_model(
     celery_client = Celery("mona", broker=redis_url)
 
     task = celery_client.send_task(
-        "tasks.train_model_task", 
+        "tasks.train_model_task",
         kwargs={"hours": hours, "note": note}
     )
 
