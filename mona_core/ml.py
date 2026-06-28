@@ -70,9 +70,7 @@ def _describe_reason(row, cpu_d1, ram_d1, cpu_d5, ram_d5):
         parts.append(f"ram changed by {ram_d5:.1f}% in 25 sec")
 
     if not parts:
-        parts.append(
-            f"combined anomaly (cpu={row.cpu:.1f}%, ram={row.ram:.1f}%)"
-        )
+        parts.append(f"combined anomaly (cpu={row.cpu:.1f}%, ram={row.ram:.1f}%)")
 
     return ", ".join(parts)
 
@@ -93,6 +91,7 @@ def _load_user_model(db):
 
 # ─── Tasks ──────────────────────────────────────────────────────────────────
 
+
 @app.task
 def detect_anomalies():
     """Detects anomalies in the last WINDOW metric points for EACH device."""
@@ -104,11 +103,12 @@ def detect_anomalies():
 
         existing_ids = {a.metric_id for a in db.query(Anomaly.metric_id).all()}
 
-        distinct_devices = [r[0] for r in db.query(Metric.device).distinct().all() if r[0]]
+        distinct_devices = [
+            r[0] for r in db.query(Metric.device).distinct().all() if r[0]
+        ]
 
         new_anomalies = []
         mode = "skipped"
-
 
         for device in distinct_devices:
             rows = (

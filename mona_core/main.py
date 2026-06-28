@@ -34,6 +34,7 @@ app.add_middleware(
 
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
+
 # ─── helpers ────────────────────────────────────────────────────────────────
 class DeviceCreate(BaseModel):
     ip: str
@@ -48,25 +49,30 @@ def get_db():
     finally:
         db.close()
 
+
 # ─── API endpoints ──────────────────────────────────────────────────────────
 # ─── Probes (Liveness & Readiness) ──────────────────────────────────────────
 @app.get("/health/live", tags=["Health"])
 def liveness_probe():
-    return {"status" : "alive"}
+    return {"status": "alive"}
+
 
 @app.get("/health/ready", tags=["Health"])
 def readiness_probe(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1"))
-        return {"status" : "ready"}
+        return {"status": "ready"}
     except Exception:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
+
 # ─── Devices ────────────────────────────────────────────────────────────────
+
 
 @app.get("/devices")
 def list_devices(db: Session = Depends(get_db)):
     return db.query(Device).all()
+
 
 @app.post("/devices", status_code=201)
 def create_device(body: DeviceCreate, db: Session = Depends(get_db)):
@@ -79,6 +85,7 @@ def create_device(body: DeviceCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=409, detail="Name already exists")
     db.refresh(dev)
     return dev
+
 
 @app.delete("/devices/{device_id}")
 def delete_device(device_id, db: Session = Depends(get_db)):
@@ -101,15 +108,18 @@ def get_prometheus_targets(db: Session = Depends(get_db)):
 
     targets = []
     for dev in devices:
-        targets.append({
-            "targets": [f"{dev.ip}:9100"],
-            "labels": {
-                "job": dev.name,
-                "physical_pc": "true",
-                "device_label": dev.name
+        targets.append(
+            {
+                "targets": [f"{dev.ip}:9100"],
+                "labels": {
+                    "job": dev.name,
+                    "physical_pc": "true",
+                    "device_label": dev.name,
+                },
             }
-        })
+        )
     return targets
+
 
 # ─── Model ──────────────────────────────────────────────────────────────────
 @app.get("/anomalies")
@@ -118,9 +128,7 @@ def get_anomalies(hours: int = 24, device: str = None, db: Session = Depends(get
     if device:
         q = q.filter(Anomaly.device == device)
     if hours > 0:
-        q = q.filter(
-            Anomaly.timestamp >= datetime.now(UTC) - timedelta(hours=hours)
-        )
+        q = q.filter(Anomaly.timestamp >= datetime.now(UTC) - timedelta(hours=hours))
     return [
         {
             "id": a.id,
@@ -163,7 +171,6 @@ def model_info(db: Session = Depends(get_db)):
     }
 
 
-
 @app.post("/train", status_code=202)
 def train_model(
     hours: float = Query(
@@ -175,15 +182,15 @@ def train_model(
     celery_client = Celery("mona", broker=redis_url)
 
     task = celery_client.send_task(
-        "tasks.train_model_task",
-        kwargs={"hours": hours, "note": note}
+        "tasks.train_model_task", kwargs={"hours": hours, "note": note}
     )
 
     return {
         "status": "accepted",
         "message": "Model training task has been submitted to the background.",
-        "task_id": task.id
+        "task_id": task.id,
     }
+
 
 @app.delete("/model")
 def delete_model(db: Session = Depends(get_db)):
@@ -205,9 +212,10 @@ def delete_model(db: Session = Depends(get_db)):
 
 # ─── Dashboard ──────────────────────────────────────────────────────────────
 @app.get("/api/dashboard")
-def get_dashboard_data(hours: int = 1, device: str = None, db: Session = Depends(get_db)):
+def get_dashboard_data(
+    hours: int = 1, device: str = None, db: Session = Depends(get_db)
+):
     devices = [r[0] for r in db.query(Metric.device).distinct().all()]
-
 
     since = datetime.now(UTC) - timedelta(hours=hours) if hours > 0 else None
 
@@ -224,7 +232,6 @@ def get_dashboard_data(hours: int = 1, device: str = None, db: Session = Depends
     metrics = q_m.order_by(Metric.timestamp).all()
     anomalies = q_a.order_by(Anomaly.timestamp).all()
 
-
     model_record = (
         db.query(TrainedModel)
         .filter(TrainedModel.trained_by == "user")
@@ -237,9 +244,13 @@ def get_dashboard_data(hours: int = 1, device: str = None, db: Session = Depends
         model_info = {
             "trained_at": model_record.trained_at.isoformat(),
             "points_count": model_record.points_count,
-            "period_from": model_record.period_from.isoformat() if model_record.period_from else None,
-            "period_to": model_record.period_to.isoformat() if model_record.period_to else None,
-            "note": model_record.note
+            "period_from": model_record.period_from.isoformat()
+            if model_record.period_from
+            else None,
+            "period_to": model_record.period_to.isoformat()
+            if model_record.period_to
+            else None,
+            "note": model_record.note,
         }
 
     return {
@@ -250,8 +261,9 @@ def get_dashboard_data(hours: int = 1, device: str = None, db: Session = Depends
                 "timestamp": m.timestamp.isoformat(),
                 "cpu": m.cpu,
                 "ram": m.ram,
-                "device": m.device
-            } for m in metrics
+                "device": m.device,
+            }
+            for m in metrics
         ],
         "anomalies": [
             {
@@ -261,9 +273,10 @@ def get_dashboard_data(hours: int = 1, device: str = None, db: Session = Depends
                 "ram": a.ram,
                 "reason": a.reason,
                 "score": a.score,
-                "device": a.device
-            } for a in anomalies
-        ]
+                "device": a.device,
+            }
+            for a in anomalies
+        ],
     }
 
 
