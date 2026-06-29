@@ -26,7 +26,7 @@ app.conf.worker_pool = "solo"
 app.conf.beat_schedule = {
     "collect": {
         "task": "tasks.collect_and_save",
-        "schedule": 5,
+        "schedule": 30,
     },
     "detect": {
         "task": "ml.detect_anomalies",
