@@ -6,10 +6,9 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
-# from mona_core.tasks import train_model_task
 from mona_core.db import (
     Anomaly,
     Base,
@@ -31,6 +30,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+celery_client = Celery("mona", broker=redis_url, backend=redis_url)
 
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
@@ -71,7 +73,8 @@ def readiness_probe(db: Session = Depends(get_db)):
 
 @app.get("/devices")
 def list_devices(db: Session = Depends(get_db)):
-    return db.query(Device).all()
+    stmt = select(Device)
+    return db.execute(stmt).scalars().all()
 
 
 @app.post("/devices", status_code=201)
@@ -89,22 +92,26 @@ def create_device(body: DeviceCreate, db: Session = Depends(get_db)):
 
 @app.delete("/devices/{device_id}")
 def delete_device(device_id, db: Session = Depends(get_db)):
-    dev = db.query(Device).filter(Device.id == device_id).first()
-
-    if not dev:
-        raise HTTPException(status_code=404, detail="Device not found")
+    stmt = delete(Device).where(Device.id == device_id)
     try:
-        db.delete(dev)
+        result = db.execute(stmt)
+
+        if result.rowcount == 0:  # type: ignore
+            raise HTTPException(status_code=404, detail="Device not found")
+
         db.commit()
+
         return {"message": "Device deleted successfully"}
+
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=409, detail=f"Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
 
 @app.get("/api/prometheus/targets")
 def get_prometheus_targets(db: Session = Depends(get_db)):
-    devices = db.query(Device).filter(Device.is_active, Device.ip.is_not(None)).all()
+    stmt = select(Device).where(Device.is_active, Device.ip.is_not(None))
+    devices = db.execute(stmt).scalars().all()
 
     targets = []
     for dev in devices:
@@ -123,12 +130,19 @@ def get_prometheus_targets(db: Session = Depends(get_db)):
 
 # ─── Model ──────────────────────────────────────────────────────────────────
 @app.get("/anomalies")
-def get_anomalies(hours: int = 24, device: str = None, db: Session = Depends(get_db)):
-    q = db.query(Anomaly)
+def get_anomalies(
+    hours: int = 24, device: str | None = None, db: Session = Depends(get_db)
+):
+    stmt = select(Anomaly)
     if device:
-        q = q.filter(Anomaly.device == device)
+        stmt = stmt.where(Anomaly.device == device)
     if hours > 0:
-        q = q.filter(Anomaly.timestamp >= datetime.now(UTC) - timedelta(hours=hours))
+        stmt = stmt.where(
+            Anomaly.timestamp >= datetime.now(UTC) - timedelta(hours=hours)
+        )
+
+    stmt = stmt.order_by(Anomaly.timestamp.desc())
+    anomalies = db.execute(stmt).scalars().all()
     return [
         {
             "id": a.id,
@@ -141,18 +155,21 @@ def get_anomalies(hours: int = 24, device: str = None, db: Session = Depends(get
             "detected_at": a.detected_at,
             "device": a.device,
         }
-        for a in q.order_by(Anomaly.timestamp.desc()).all()
+        for a in anomalies
     ]
 
 
 @app.get("/model-info")
 def model_info(db: Session = Depends(get_db)):
-    record = (
-        db.query(TrainedModel)
-        .filter(TrainedModel.trained_by == "user")
+    stmt = (
+        select(TrainedModel)
+        .where(TrainedModel.trained_by == "user")
         .order_by(TrainedModel.trained_at.desc())
-        .first()
+        .limit(1)
     )
+
+    record = db.execute(stmt).scalar_one_or_none()
+
     if record is None:
         return {
             "status": "no_model",
@@ -178,8 +195,6 @@ def train_model(
     ),
     note: str = Query(default="", description="Comment (optional)"),
 ):
-    redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
-    celery_client = Celery("mona", broker=redis_url)
 
     task = celery_client.send_task(
         "tasks.train_model_task", kwargs={"hours": hours, "note": note}
@@ -196,13 +211,12 @@ def train_model(
 def delete_model(db: Session = Depends(get_db)):
     """Deletes the custom model — Celery will return to auto-mode."""
     try:
-        deleted = (
-            db.query(TrainedModel).filter(TrainedModel.trained_by == "user").delete()
-        )
+        stmt = delete(TrainedModel).where(TrainedModel.trained_by == "user")
+        result = db.execute(stmt)
         db.commit()
         return {
             "status": "ok",
-            "deleted": deleted,
+            "deleted": result.rowcount,  # type: ignore
             "message": "Model deleted. Celery switched to auto-mode.",
         }
     except Exception as e:
@@ -213,31 +227,33 @@ def delete_model(db: Session = Depends(get_db)):
 # ─── Dashboard ──────────────────────────────────────────────────────────────
 @app.get("/api/dashboard")
 def get_dashboard_data(
-    hours: int = 1, device: str = None, db: Session = Depends(get_db)
+    hours: int = 1, device: str | None = None, db: Session = Depends(get_db)
 ):
-    devices = [r[0] for r in db.query(Metric.device).distinct().all()]
+    devices_stmt = select(Metric.device).distinct()
+    devices = db.execute(devices_stmt).scalars().all()
 
     since = datetime.now(UTC) - timedelta(hours=hours) if hours > 0 else None
 
-    q_m = db.query(Metric)
-    q_a = db.query(Anomaly)
+    stmt_m = select(Metric)
+    stmt_a = select(Anomaly)
 
     if device:
-        q_m = q_m.filter(Metric.device == device)
-        q_a = q_a.filter(Anomaly.device == device)
+        stmt_m = stmt_m.where(Metric.device == device)
+        stmt_a = stmt_a.where(Anomaly.device == device)
     if since:
-        q_m = q_m.filter(Metric.timestamp >= since)
-        q_a = q_a.filter(Anomaly.timestamp >= since)
+        stmt_m = stmt_m.where(Metric.timestamp >= since)
+        stmt_a = stmt_a.where(Anomaly.timestamp >= since)
 
-    metrics = q_m.order_by(Metric.timestamp).all()
-    anomalies = q_a.order_by(Anomaly.timestamp).all()
+    metrics = db.execute(stmt_m.order_by(Metric.timestamp)).scalars().all()
+    anomalies = db.execute(stmt_a.order_by(Anomaly.timestamp)).scalars().all()
 
-    model_record = (
-        db.query(TrainedModel)
-        .filter(TrainedModel.trained_by == "user")
+    model_stmt = (
+        select(TrainedModel)
+        .where(TrainedModel.trained_by == "user")
         .order_by(TrainedModel.trained_at.desc())
-        .first()
+        .limit(1)
     )
+    model_record = db.execute(model_stmt).scalar_one_or_none()
 
     model_info = None
     if model_record:
@@ -282,18 +298,16 @@ def get_dashboard_data(
 
 # ─── Metrics ────────────────────────────────────────────────────────────────
 @app.get("/db-metrics")
-def get_metrics(device: str = None, db: Session = Depends(get_db)):
-    data = db.query(Metric)
+def get_metrics(device: str | None = None, db: Session = Depends(get_db)):
+    stmt = select(Metric)
     if device:
-        data = data.filter(Metric.device == device)
-    return data.all()
+        stmt = stmt.where(Metric.device == device)
+    return db.execute(stmt).scalars().all()
 
 
 # ─── Tasks ──────────────────────────────────────────────────────────────────
 @app.get("/task-status/{task_id}")
 def get_task_status(task_id: str):
-    redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
-    celery_client = Celery("mona", broker=redis_url, backend=redis_url)
     result = celery_client.AsyncResult(task_id)
 
     raw = None

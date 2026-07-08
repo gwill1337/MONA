@@ -125,7 +125,7 @@ def detect_anomalies():
             rows = list(reversed(rows))
             X_all = _build_features(rows)  # noqa: N806
 
-            if user_model is not None:
+            if user_model is not None and user_scaler is not None:
                 # ── Mode 1: custom user model ──
                 X_scaled = user_scaler.transform(X_all)  # noqa: N806
                 preds = user_model.predict(X_scaled)

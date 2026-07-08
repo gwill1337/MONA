@@ -18,10 +18,7 @@ database_url = os.getenv("DATABASE_URL", "postgresql://myuser:1234@postgres:5432
 if not database_url.startswith("db+"):
     database_url = f"db+{database_url}"
 
-app.conf.timezone = "UTC"
-
-
-app.conf.worker_pool = "solo"
+app.conf.update(timezone="UTC", worker_pool="solo")
 
 app.conf.beat_schedule = {
     "collect": {
