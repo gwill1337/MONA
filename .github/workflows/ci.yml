@@ -49,6 +49,8 @@ jobs:
         run: |
           helm template ./mona-chart | kubeconform \
             -ignore-missing-schemas \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
             -summary \
             -output pretty \
             -
