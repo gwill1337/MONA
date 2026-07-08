@@ -48,6 +48,7 @@ jobs:
       - name: Kubeconform
         run: |
           helm template ./mona-chart | kubeconform \
+            -kubernetes-version 1.28.0 \
             -ignore-missing-schemas \
             -skip Prometheus,Alertmanager,ServiceMonitor,PodMonitor,GrafanaDashboard \
             -summary \
