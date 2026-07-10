@@ -101,7 +101,7 @@ jobs:
         run: uvx ruff format --check .
       
       - name: pytest
-        run: uvx pytest tests/
+        run: uv run pytest tests/
 
   docker:
     name: Build and Push Docker Images
