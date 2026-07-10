@@ -2,7 +2,7 @@ fastapi
 uvicorn
 pytest
 ruff
-httpx2
+httpx
 sqlalchemy
 psycopg2-binary
 redis
