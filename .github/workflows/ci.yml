@@ -93,6 +93,11 @@ jobs:
       - name: Install linters
         run: pip install --no-cache-dir celery ruff mypy pytest httpx fastapi sqlalchemy pydantic
 
+      - name: Verify celery import
+        run: |
+          python -c "from celery.app.base import Celery" 
+          python -c "import celery, kombu, click; print(celery.__version__, kombu.__version__, click.__version__)"
+
       - name: Mypy type check
         run: python -m mypy mona_core/
 
