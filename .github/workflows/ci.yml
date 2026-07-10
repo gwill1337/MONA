@@ -80,7 +80,7 @@ jobs:
               new-line-at-end-of-file: disable
 
   python:
-    name: Python lint,type checks and tests
+    name: Python lint, type checks and tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +91,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install linters
-        run: pip install ruff mypy pytest httpx2 mypy
+        run: pip install ruff mypy pytest httpx2 mypy fastapi
 
       - name: Mypy type check
         run: python -m mypy mona_core/
