@@ -106,7 +106,10 @@ async def get_current_admin(admin_session: str | None = Cookie(None)):
 
     return admin_id
 
+
 admin_router = APIRouter(dependencies=[Depends(get_current_admin)])
+
+
 # ─── API endpoints ──────────────────────────────────────────────────────────
 # ─── Probes (Liveness & Readiness) ──────────────────────────────────────────
 @app.get("/health/live", tags=["Health"])
@@ -449,5 +452,5 @@ def get_task_status(task_id: str):
         "result": result.result if result.ready() else None,
     }
 
-app.include_router(admin_router)
 
+app.include_router(admin_router)

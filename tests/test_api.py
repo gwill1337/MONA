@@ -118,7 +118,9 @@ class TestModel:
         assert body["model"]["points_count"] == 1000
         assert body["model"]["note"] == "nightly training"
 
-    def test_model_info_ignores_non_user_trained(self, client, db_session, mock_admin_auth):
+    def test_model_info_ignores_non_user_trained(
+        self, client, db_session, mock_admin_auth
+    ):
         db_session.add(
             TrainedModel(
                 model_data=b"x",
@@ -181,7 +183,9 @@ class TestDashboardAndMetrics:
         assert len(body) == 2
         assert body["items"][0]["device"] == "srv-1"
 
-    def test_dashboard_combines_metrics_anomalies_and_model(self, client, db_session, mock_admin_auth):
+    def test_dashboard_combines_metrics_anomalies_and_model(
+        self, client, db_session, mock_admin_auth
+    ):
         now = datetime.now(UTC)
         db_session.add_all(
             [
@@ -320,7 +324,9 @@ class TestAnomalies:
         assert len(body) == 3
         assert body["items"][0]["device"] == "srv-2"
 
-    def test_get_anomalies_hours_zero_disables_time_filter(self, client, db_session, mock_admin_auth):
+    def test_get_anomalies_hours_zero_disables_time_filter(
+        self, client, db_session, mock_admin_auth
+    ):
         now = datetime.now(UTC)
         db_session.add(self._make_anomaly("srv-1", now - timedelta(days=30)))
         db_session.commit()
@@ -432,28 +438,25 @@ class TestAuth:
 
         assert a.password_hash != b.password_hash
 
+
 class TestSecureEndpoints:
     @pytest.mark.parametrize(
         "method, endpoint",
         [
             # Auth
             ("GET", "/api/auth/me"),
-
             # Devices
             ("GET", "/devices"),
             ("POST", "/devices"),
             ("DELETE", "/devices/1"),
-
             # Model & Anomalies
             ("GET", "/anomalies"),
             ("GET", "/model-info"),
             ("POST", "/train?hours=1"),
             ("DELETE", "/model"),
-
             # Dashboard & Metrics
             ("GET", "/api/dashboard"),
             ("GET", "/db-metrics"),
-
             # Tasks
             ("GET", "/task-status/dummy-task-id-123"),
         ],
