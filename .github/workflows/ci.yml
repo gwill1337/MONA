@@ -91,7 +91,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install linters
-        run: pip install ruff mypy pytest httpx2 mypy fastapi sqlalchemy pydantic celery
+        run: pip install ruff mypy pytest httpx fastapi sqlalchemy pydantic "celery>=5.4,<6" "importlib-metadata>=6,<8"
 
       - name: Mypy type check
         run: python -m mypy mona_core/
