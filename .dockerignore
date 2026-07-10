@@ -27,8 +27,4 @@ mona_chart/
 yaml/
 scripts/
 tests/
-pytest.ini
 conftest.py
-mypy.ini
-ruff.toml
-requirements_dev.txt

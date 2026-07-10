@@ -85,25 +85,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
+          enable-cache: true
 
-      - name: Install linters
-        run: pip install --no-cache-dir -r requirements_ci.txt
+      - name: Install dependencies
+        run: |
+          uv sync --frozen --group ci
 
       - name: Mypy type check
-        run: python -m mypy mona_core/
+        run: uv run mypy mona_core/
 
       - name: Ruff lint
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: Ruff format check
-        run: ruff format --check .
+        run: uv run ruff format --check .
       
       - name: pytest
-        run: python -m pytest tests/test_api.py
+        run: uv run pytest tests/test_api.py
 
   docker:
     name: Build and Push Docker Images
