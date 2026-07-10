@@ -1,0 +1,8 @@
+celery
+requests
+sqlalchemy
+psycopg2-binary
+redis
+scikit-learn
+numpy
+PyYAML>=6.0.1

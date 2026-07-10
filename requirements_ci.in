@@ -1,0 +1,10 @@
+celery
+ruff
+mypy
+pytest
+httpx
+httpx2
+fastapi
+sqlalchemy
+pydantic
+prometheus_fastapi_instrumentator
