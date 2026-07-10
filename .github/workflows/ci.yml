@@ -20,13 +20,13 @@ jobs:
 
       - name: Terraform fmt
         run: terraform fmt -check -recursive
-        working-directory: yaml
+        working-directory: terraform
 
       - name: Terraform validate
         run: |
           terraform init -backend=false
           terraform validate
-        working-directory: yaml
+        working-directory: terraform
 
   helm:
     name: Helm checks
