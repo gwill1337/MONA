@@ -91,10 +91,6 @@ jobs:
           python-version: '3.13'
           enable-cache: true
 
-      # - name: Install dependencies
-      #   run: |
-      #     uv sync --frozen --only-group ci
-
       - name: Mypy type check
         run: uvx mypy mona_core/
 

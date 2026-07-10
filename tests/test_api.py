@@ -1,7 +1,9 @@
 from datetime import UTC, datetime, timedelta
 
-from mona_core.db import AdminUser, Anomaly, Device, Metric, TrainedModel
 import pytest
+
+from mona_core.db import AdminUser, Anomaly, Device, Metric, TrainedModel
+
 
 class TestProbes:
     def test_liveness_probe(self, client):
@@ -436,22 +438,22 @@ class TestSecureEndpoints:
         [
             # Auth
             ("GET", "/api/auth/me"),
-            
+
             # Devices
             ("GET", "/devices"),
             ("POST", "/devices"),
             ("DELETE", "/devices/1"),
-            
+
             # Model & Anomalies
             ("GET", "/anomalies"),
             ("GET", "/model-info"),
             ("POST", "/train?hours=1"),
             ("DELETE", "/model"),
-            
+
             # Dashboard & Metrics
             ("GET", "/api/dashboard"),
             ("GET", "/db-metrics"),
-            
+
             # Tasks
             ("GET", "/task-status/dummy-task-id-123"),
         ],
