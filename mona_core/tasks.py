@@ -3,8 +3,9 @@ import pickle
 from datetime import UTC, datetime, timedelta
 
 import requests
-from celery_conf import app
-from db import Device, Metric, SessionLocal, TrainedModel
+
+from mona_core.celery_conf import app
+from mona_core.db import Device, Metric, SessionLocal, TrainedModel
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -26,6 +27,9 @@ def _query(prometheus_url: str, query: str) -> float:
 
 def _build_features(rows):
     import numpy as np
+
+    # if len(rows) < 5:
+    #     raise ValueError("Need at least 5 points")
 
     cpu = np.array([r.cpu for r in rows], dtype=float)
     ram = np.array([r.ram for r in rows], dtype=float)

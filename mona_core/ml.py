@@ -16,10 +16,11 @@ import pickle
 from datetime import UTC, datetime, timedelta
 
 import numpy as np
-from celery_conf import app
-from db import Anomaly, Metric, SessionLocal, TrainedModel
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+
+from mona_core.celery_conf import app
+from mona_core.db import Anomaly, Metric, SessionLocal, TrainedModel
 
 WINDOW = 500
 MIN_POINTS = 30

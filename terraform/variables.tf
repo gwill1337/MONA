@@ -8,6 +8,16 @@ variable "telegram_chat_id" {
   sensitive = true
 }
 
+variable "admin_username" {
+  type    = string
+  default = "admin"
+}
+
+variable "admin_password" {
+  type      = string
+  sensitive = true
+}
+
 # variable "exporters" {
 #   type = string
 # }

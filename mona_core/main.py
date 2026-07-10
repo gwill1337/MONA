@@ -1,15 +1,21 @@
 import os
+import secrets
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
 from celery import Celery
-from fastapi import Depends, FastAPI, HTTPException, Query
+
+# from dotenv import load_dotenv
+from fastapi import APIRouter, Cookie, Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
+from redis.asyncio import from_url
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 from mona_core.db import (
+    AdminUser,
     Anomaly,
     Base,
     Device,
@@ -19,9 +25,17 @@ from mona_core.db import (
     engine,
 )
 
-Base.metadata.create_all(engine)
+# load_dotenv()
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    Base.metadata.create_all(engine)
+    seed_admin()
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,6 +48,8 @@ app.add_middleware(
 redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
 celery_client = Celery("mona", broker=redis_url, backend=redis_url)
 
+redis_client = from_url(redis_url, decode_responses=True)
+
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 
 
@@ -44,6 +60,11 @@ class DeviceCreate(BaseModel):
     is_active: bool = True
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
 def get_db():
     db = SessionLocal()
     try:
@@ -52,6 +73,40 @@ def get_db():
         db.close()
 
 
+# ─── Startup ────────────────────────────────────────────────────────────────
+def seed_admin():
+    username = os.getenv("ADMIN_USERNAME")
+    password = os.getenv("ADMIN_PASSWORD")
+
+    if not username or not password:
+        return {}
+    with SessionLocal() as db:
+        try:
+            stmt = select(AdminUser).where(AdminUser.username == username)
+            exists = db.execute(stmt).scalar_one_or_none()
+
+            if not exists:
+                admin = AdminUser(username=username)
+                admin.set_password(password)
+                db.add(admin)
+                db.commit()
+        except Exception as e:
+            db.rollback()
+            print(f"Error: {e}")
+
+
+# ─── Auth ────────────────────────────────────────────────────────────────
+async def get_current_admin(admin_session: str | None = Cookie(None)):
+    if not admin_session:
+        raise HTTPException(status_code=401, detail="You are not auth(Cokie not found)")
+
+    admin_id = await redis_client.get(f"session:{admin_session}")
+    if not admin_id:
+        raise HTTPException(status_code=401, detail="Session expired or not valid")
+
+    return admin_id
+
+admin_router = APIRouter(dependencies=[Depends(get_current_admin)])
 # ─── API endpoints ──────────────────────────────────────────────────────────
 # ─── Probes (Liveness & Readiness) ──────────────────────────────────────────
 @app.get("/health/live", tags=["Health"])
@@ -68,16 +123,54 @@ def readiness_probe(db: Session = Depends(get_db)):
         raise HTTPException(status_code=503, detail="Database unavailable")
 
 
+# ─── login & logout ─────────────────────────────────────────────────────────
+@app.post("/api/auth/login", tags=["Auth"])
+async def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
+    stmt = select(AdminUser).where(AdminUser.username == body.username)
+    admin = db.execute(stmt).scalar_one_or_none()
+
+    if not admin or not admin.check_password(body.password):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    session_id = secrets.token_urlsafe(32)
+
+    await redis_client.set(f"session:{session_id}", admin.id, ex=43200)
+
+    response.set_cookie(
+        key="admin_session",
+        value=session_id,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=43200,
+    )
+    return {"status": "ok", "message": "Successfully login"}
+
+
+@app.post("/api/auth/logout", tags=["Auth"])
+async def logout(response: Response, admin_session: str | None = Cookie(None)):
+    if admin_session:
+        await redis_client.delete(f"session:{admin_session}")
+
+    response.delete_cookie("admin_session")
+    return {"status": "ok", "message": "Successfuly logout"}
+
+
+@app.get("/api/auth/me")
+async def auth_me(admin=Depends(get_current_admin)):
+    return {"authenticated": True}
+
+
 # ─── Devices ────────────────────────────────────────────────────────────────
 
 
-@app.get("/devices")
+@admin_router.get("/devices")
 def list_devices(db: Session = Depends(get_db)):
     stmt = select(Device)
     return db.execute(stmt).scalars().all()
 
 
-@app.post("/devices", status_code=201)
+@admin_router.post("/devices", status_code=201)
 def create_device(body: DeviceCreate, db: Session = Depends(get_db)):
     dev = Device(ip=body.ip, name=body.name, is_active=body.is_active)
     db.add(dev)
@@ -90,7 +183,7 @@ def create_device(body: DeviceCreate, db: Session = Depends(get_db)):
     return dev
 
 
-@app.delete("/devices/{device_id}")
+@admin_router.delete("/devices/{device_id}")
 def delete_device(device_id: int, db: Session = Depends(get_db)):
     stmt = delete(Device).where(Device.id == device_id)
     try:
@@ -130,7 +223,7 @@ def get_prometheus_targets(db: Session = Depends(get_db)):
 
 
 # ─── Model ──────────────────────────────────────────────────────────────────
-@app.get("/anomalies")
+@admin_router.get("/anomalies")
 def get_anomalies(
     hours: int = 24,
     device: str | None = None,
@@ -168,7 +261,7 @@ def get_anomalies(
     }
 
 
-@app.get("/model-info")
+@admin_router.get("/model-info")
 def model_info(db: Session = Depends(get_db)):
     stmt = (
         select(TrainedModel)
@@ -197,7 +290,7 @@ def model_info(db: Session = Depends(get_db)):
     }
 
 
-@app.post("/train", status_code=202)
+@admin_router.post("/train", status_code=202)
 def train_model(
     hours: float = Query(
         default=1.0,
@@ -219,7 +312,7 @@ def train_model(
     }
 
 
-@app.delete("/model")
+@admin_router.delete("/model")
 def delete_model(db: Session = Depends(get_db)):
     """Deletes the custom model — Celery will return to auto-mode."""
     try:
@@ -237,7 +330,7 @@ def delete_model(db: Session = Depends(get_db)):
 
 
 # ─── Dashboard ──────────────────────────────────────────────────────────────
-@app.get("/api/dashboard")
+@admin_router.get("/api/dashboard")
 def get_dashboard_data(
     hours: int = 1,
     device: str | None = None,
@@ -315,7 +408,7 @@ def get_dashboard_data(
 
 
 # ─── Metrics ────────────────────────────────────────────────────────────────
-@app.get("/db-metrics")
+@admin_router.get("/db-metrics")
 def get_metrics(
     device: str | None = None,
     hours: int = Query(default=1, le=24 * 7),
@@ -337,7 +430,7 @@ def get_metrics(
 
 
 # ─── Tasks ──────────────────────────────────────────────────────────────────
-@app.get("/task-status/{task_id}")
+@admin_router.get("/task-status/{task_id}")
 def get_task_status(task_id: str):
     result = celery_client.AsyncResult(task_id)
 
@@ -355,3 +448,6 @@ def get_task_status(task_id: str):
         "state": result.state,
         "result": result.result if result.ready() else None,
     }
+
+app.include_router(admin_router)
+

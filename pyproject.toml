@@ -3,9 +3,11 @@ name = "mona"
 version = "0.1.0"
 description = "toml for mona project"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.13"
 dependencies = [
+    "bcrypt>=5.0.0",
     "celery>=5.6.3",
+    "dotenv>=0.9.9",
     "fastapi>=0.139.0",
     "numpy>=2.5.1",
     "prometheus-fastapi-instrumentator>=8.0.2",
@@ -25,6 +27,9 @@ target-version = "py314"
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W"]
 ignore = ["E501"]
+
+[tool.ruff.lint.pep8-naming]
+ignore-names = ["X"]
 
 [tool.mypy]
 ignore_missing_imports = true

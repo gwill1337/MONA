@@ -1,20 +1,12 @@
-FROM python:3.11 AS builder
+FROM python:3.13 AS builder
+COPY docker/requirements_celery.txt .
+RUN pip install --no-cache-dir -r requirements_celery.txt
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
-ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1
-
-WORKDIR /app
-
-COPY pyproject.toml uv.lock ./
-
-RUN uv sync --frozen --no-dev
-
-FROM python:3.11-slim
-WORKDIR /app
-COPY --from=builder /app/.venv /app/.venv
+FROM python:3.13-slim
+COPY --from=builder /usr/local /usr/local
 COPY . /app
-ENV PATH="/app/.venv/bin:$PATH"
+WORKDIR /app
+
 ENV PYTHONPATH=/app/mona_core
 
 CMD ["celery", "-A", "celery_conf", "worker", "--loglevel=info"]

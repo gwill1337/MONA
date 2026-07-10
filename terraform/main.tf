@@ -124,6 +124,14 @@ resource "helm_release" "mona_app" {
     name  = "fastapi.env.DATABASE_URL"
     value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
   }
+  set_sensitive {
+    name  = "fastapi.env.ADMIN_USERNAME"
+    value = var.admin_username
+  }
+  set_sensitive {
+    name  = "fastapi.env.ADMIN_PASSWORD"
+    value = var.admin_password
+  }
 
   set_sensitive {
     name  = "kube-prometheus-stack.alertmanager.config.receivers[1].telegram_configs[0].bot_token"

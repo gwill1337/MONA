@@ -77,3 +77,36 @@ def mock_celery(monkeypatch):
     monkeypatch.setattr(main_module.celery_client, "AsyncResult", fake_async_result)
 
     return state
+
+
+@pytest.fixture()
+def mock_admin_auth():
+    from mona_core.main import get_current_admin
+
+    main_module.app.dependency_overrides[get_current_admin] = lambda: "mock_admin_123"
+    yield
+
+    main_module.app.dependency_overrides.clear()
+
+
+class FakeRedis:
+    def __init__(self):
+        self.storage = {}
+
+    async def set(self, key, value, ex=None):
+        self.storage[key] = value
+        return True
+
+    async def get(self, key):
+        return self.storage.get(key)
+
+    async def delete(self, key):
+        self.storage.pop(key, None)
+        return 1
+
+
+@pytest.fixture()
+def mock_redis(monkeypatch):
+    fake = FakeRedis()
+    monkeypatch.setattr(main_module, "redis_client", fake)
+    return fake

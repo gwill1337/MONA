@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiFetch } from "./api";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceDot, Legend,
 } from "recharts";
 import {
-  Activity, AlertTriangle, BrainCircuit, ChevronDown,
+  Activity, AlertTriangle, ArrowLeft, BrainCircuit, ChevronDown,
   CheckSquare, Clock, Cpu, MemoryStick, RefreshCw,
   Server, Square, Trash2, Wifi, WifiOff, X, Zap,
 } from "lucide-react";
@@ -48,8 +50,6 @@ interface DashboardData {
   metrics: MetricPoint[];
   anomalies: Anomaly[];
 }
-
-const API_BASE = "http://localhost:30080";
 
 const DEVICE_COLORS = [
   "#22d3ee", "#a78bfa", "#fb923c", "#34d399",
@@ -350,7 +350,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
 
   const fetchModelInfo = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/model-info`);
+      const res = await apiFetch("/model-info");
       setModelInfo(await res.json());
     } catch {}
   }, []);
@@ -373,7 +373,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
 
       // ── 1. Check Celery task result via /task-status ──────────────────────
       try {
-        const tr = await fetch(`${API_BASE}/task-status/${taskId}`);
+        const tr = await apiFetch(`/task-status/${taskId}`);
         if (tr.ok) {
           const ts = await tr.json();
           // state: PENDING | STARTED | SUCCESS | FAILURE | RETRY | REVOKED
@@ -388,7 +388,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
             // Real success — refresh model-info
             stop();
             await fetchModelInfo();
-            const infoRes = await fetch(`${API_BASE}/model-info`);
+            const infoRes = await apiFetch("/model-info");
             const info: ModelInfo = infoRes.ok ? await infoRes.json() : { status: "no_model" };
             setModelInfo(info);
             const pts = info.status === "ok" ? info.model!.points_count : prevPoints;
@@ -410,7 +410,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
 
       // ── 2. Fallback: if task-status endpoint missing, detect via model-info ─
       try {
-        const mr = await fetch(`${API_BASE}/model-info`);
+        const mr = await apiFetch("/model-info");
         if (mr.ok) {
           const info: ModelInfo = await mr.json();
           if (info.status === "ok" && (info.model?.points_count ?? 0) !== prevPoints) {
@@ -436,7 +436,9 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
     setPhase({ kind: "submitting" });
     try {
       const params = new URLSearchParams({ hours: trainHours, note: trainNote });
-      const res = await fetch(`${API_BASE}/train?${params}`, { method: "POST" });
+      const res = await apiFetch(`/train?${params}`, {
+          method: "POST",
+      });
       const d = await res.json();
 
       if (d.status === "accepted") {
@@ -458,8 +460,9 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
     if (!confirm("Reset model and return to auto-mode?")) return;
     setDeleting(true);
     try {
-      const res = await fetch(`${API_BASE}/model`, { method: "DELETE" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await apiFetch("/model", {
+          method: "DELETE",
+      });
       await fetchModelInfo();
       setPhase({ kind: "success", text: "Model deleted. Switched to auto-mode." });
       onTrained();
@@ -610,6 +613,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
   const [hours, setHours] = useState(1);
@@ -632,7 +636,7 @@ export default function Dashboard() {
   // ─── Fetch devices list ───────────────────────────────────────────────────
   const fetchDevices = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/devices`);
+      const res = await apiFetch("/devices");
       const list: Device[] = await res.json();
       setDevices(list);
 
@@ -665,8 +669,7 @@ export default function Dashboard() {
   const fetchDashboard = useCallback(async () => {
     try {
       const params = new URLSearchParams({ hours: String(hours) });
-      const res = await fetch(`${API_BASE}/api/dashboard?${params}`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const res = await apiFetch(`/api/dashboard?${params}`);
       const d: DashboardData = await res.json();
       setData(d);
     } catch {}
@@ -766,6 +769,14 @@ export default function Dashboard() {
 
         {/* ── Top bar ── */}
         <header className="flex flex-wrap items-center gap-3 mb-8">
+          <button
+            onClick={() => navigate("/admin")}
+            title="Back to device registry"
+            className="p-2 rounded-xl border border-slate-700/60 bg-slate-900/60 text-slate-400 hover:text-white hover:border-slate-600 transition-all"
+          >
+            <ArrowLeft size={16} />
+          </button>
+
           <div className="flex items-center gap-2 mr-2">
             <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
               <Activity size={17} />

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "./api";
 import {
   Server,
   Plus,
@@ -19,8 +20,6 @@ interface Device {
   name: string;
   is_active: boolean;
 }
-
-const API_BASE = "http://localhost:30080";
 
 // ─── Pulse dot ──────────────────────────────────────────────────────────────
 const PulseDot = ({ active }: { active: boolean }) => (
@@ -93,9 +92,8 @@ function AddDeviceModal({ onClose, onAdded }: AddDeviceModalProps) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${API_BASE}/devices`, {
+      const res = await apiFetch("/devices", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
       if (!res.ok) {
@@ -327,7 +325,7 @@ export default function DeviceAdmin() {
 
   const fetchDevices = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/devices`);
+      const res = await apiFetch("/devices");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setDevices(data);
@@ -343,8 +341,8 @@ export default function DeviceAdmin() {
   const handleDeleteConfirm = async () => {
     if (!deviceToDelete) return;
     try {
-      const res = await fetch(`${API_BASE}/devices/${deviceToDelete.id}`, {
-        method: "DELETE",
+      const res = await apiFetch(`/devices/${deviceToDelete.id}`, {
+          method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete device");
       

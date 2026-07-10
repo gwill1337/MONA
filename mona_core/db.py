@@ -2,6 +2,7 @@ import os
 from datetime import UTC, datetime
 from typing import Annotated
 
+import bcrypt
 from sqlalchemy import (
     Index,
     LargeBinary,
@@ -69,3 +70,22 @@ class TrainedModel(Base):
     period_from: Mapped[datetime]
     period_to: Mapped[datetime]
     note: Mapped[str] = mapped_column(nullable=True)
+
+
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id: Mapped[int_pk]
+    username: Mapped[str] = mapped_column(unique=True)
+    password_hash: Mapped[str]
+
+    def set_password(self, password: str):
+        salt = bcrypt.gensalt()
+        self.password_hash = bcrypt.hashpw(password.encode("utf-8"), salt).decode(
+            "utf-8"
+        )
+
+    def check_password(self, password: str) -> bool:
+        return bcrypt.checkpw(
+            password.encode("utf-8"), self.password_hash.encode("utf-8")
+        )

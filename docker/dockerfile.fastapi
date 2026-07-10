@@ -1,19 +1,10 @@
-FROM python:3.11 AS builder
-
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
-ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1
-
-
+FROM python:3.13 AS builder
 WORKDIR /app
+COPY docker/requirements_fastapi.txt .
+RUN pip install --no-cache-dir -r requirements_fastapi.txt
 
-COPY pyproject.toml uv.lock ./
-
-RUN uv sync --frozen --no-dev
-
-FROM python:3.11-slim
-WORKDIR /app
-COPY --from=builder /app/.venv /app/.venv
-ENV PATH="/app/.venv/bin:$PATH"
+FROM python:3.13-slim
+COPY --from=builder /usr/local /usr/local
 COPY . /app
+WORKDIR /app
 CMD ["uvicorn", "mona_core.main:app", "--host", "0.0.0.0", "--port", "80"]
