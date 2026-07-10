@@ -91,6 +91,9 @@ jobs:
           python-version: '3.13'
           enable-cache: true
 
+      - name: Install system dependencies for SciPy
+        run: sudo apt-get update && sudo apt-get install -y libopenblas-dev
+
       - name: Install dependencies
         run: |
           uv sync --frozen --group ci
