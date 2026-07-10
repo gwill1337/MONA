@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+pytest
+ruff
+httpx2
+sqlalchemy
+psycopg2-binary
+redis
+scikit-learn
+numpy
+PyYAML>=6.0.1
+celery
+requests
+prometheus_fastapi_instrumentator
+pydantic

@@ -7,15 +7,18 @@ from sqlalchemy import (
     LargeBinary,
     create_engine,
 )
-from sqlalchemy.orm import Mapped, declarative_base, mapped_column, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 DATABASE = os.getenv("DATABASE_URL", "postgresql://myuser:1234@localhost:5432/mydb")
 
 engine = create_engine(DATABASE)
 SessionLocal = sessionmaker(bind=engine)
-Base = declarative_base()
 
 int_pk = Annotated[int, mapped_column(primary_key=True)]
+
+
+class Base(DeclarativeBase):
+    pass
 
 
 class Device(Base):
@@ -36,7 +39,7 @@ class Metric(Base):
     device: Mapped[str] = mapped_column(default="default")
     timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
-    __table_args__ = Index("idx_metrics_device_timestamp", "device", "timestamp")
+    __table_args__ = (Index("idx_metrics_device_timestamp", "device", "timestamp"),)
 
 
 class Anomaly(Base):
@@ -52,7 +55,7 @@ class Anomaly(Base):
     device: Mapped[str]
     detected_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
 
-    __table_args__ = Index("idx_anomalies_device_timestamp", "device", "timestamp")
+    __table_args__ = (Index("idx_anomalies_device_timestamp", "device", "timestamp"),)
 
 
 class TrainedModel(Base):

@@ -35,7 +35,7 @@ venv/
 .venv/
 
 # Docker
-.dockerignore
+# .dockerignore
 
 # OS
 .DS_Store
@@ -47,3 +47,5 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+
+CHANGELOG.md

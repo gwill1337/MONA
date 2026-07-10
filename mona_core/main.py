@@ -91,7 +91,7 @@ def create_device(body: DeviceCreate, db: Session = Depends(get_db)):
 
 
 @app.delete("/devices/{device_id}")
-def delete_device(device_id, db: Session = Depends(get_db)):
+def delete_device(device_id: int, db: Session = Depends(get_db)):
     stmt = delete(Device).where(Device.id == device_id)
     try:
         result = db.execute(stmt)
@@ -102,7 +102,8 @@ def delete_device(device_id, db: Session = Depends(get_db)):
         db.commit()
 
         return {"message": "Device deleted successfully"}
-
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
@@ -131,7 +132,11 @@ def get_prometheus_targets(db: Session = Depends(get_db)):
 # ─── Model ──────────────────────────────────────────────────────────────────
 @app.get("/anomalies")
 def get_anomalies(
-    hours: int = 24, device: str | None = None, db: Session = Depends(get_db)
+    hours: int = 24,
+    device: str | None = None,
+    limit: int = Query(default=100, le=1000),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
 ):
     stmt = select(Anomaly)
     if device:
@@ -141,22 +146,26 @@ def get_anomalies(
             Anomaly.timestamp >= datetime.now(UTC) - timedelta(hours=hours)
         )
 
-    stmt = stmt.order_by(Anomaly.timestamp.desc())
+    stmt = stmt.order_by(Anomaly.timestamp.desc()).limit(limit).offset(offset)
     anomalies = db.execute(stmt).scalars().all()
-    return [
-        {
-            "id": a.id,
-            "metric_id": a.metric_id,
-            "cpu": a.cpu,
-            "ram": a.ram,
-            "timestamp": a.timestamp,
-            "reason": a.reason,
-            "score": a.score,
-            "detected_at": a.detected_at,
-            "device": a.device,
-        }
-        for a in anomalies
-    ]
+    return {
+        "items": [
+            {
+                "id": a.id,
+                "metric_id": a.metric_id,
+                "cpu": a.cpu,
+                "ram": a.ram,
+                "timestamp": a.timestamp,
+                "reason": a.reason,
+                "score": a.score,
+                "detected_at": a.detected_at,
+                "device": a.device,
+            }
+            for a in anomalies
+        ],
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @app.get("/model-info")
@@ -191,7 +200,10 @@ def model_info(db: Session = Depends(get_db)):
 @app.post("/train", status_code=202)
 def train_model(
     hours: float = Query(
-        default=1.0, description="Hours of recent data to use for training"
+        default=1.0,
+        ge=0,
+        le=24 * 7,
+        description="Hours of recent data to use for training",
     ),
     note: str = Query(default="", description="Comment (optional)"),
 ):
@@ -227,7 +239,10 @@ def delete_model(db: Session = Depends(get_db)):
 # ─── Dashboard ──────────────────────────────────────────────────────────────
 @app.get("/api/dashboard")
 def get_dashboard_data(
-    hours: int = 1, device: str | None = None, db: Session = Depends(get_db)
+    hours: int = 1,
+    device: str | None = None,
+    max_points: int = Query(default=2000, le=10000),
+    db: Session = Depends(get_db),
 ):
     devices_stmt = select(Metric.device).distinct()
     devices = db.execute(devices_stmt).scalars().all()
@@ -244,8 +259,11 @@ def get_dashboard_data(
         stmt_m = stmt_m.where(Metric.timestamp >= since)
         stmt_a = stmt_a.where(Anomaly.timestamp >= since)
 
-    metrics = db.execute(stmt_m.order_by(Metric.timestamp)).scalars().all()
-    anomalies = db.execute(stmt_a.order_by(Anomaly.timestamp)).scalars().all()
+    stmt_m = stmt_m.order_by(Metric.timestamp.desc()).limit(max_points)
+    stmt_a = stmt_a.order_by(Anomaly.timestamp.desc()).limit(max_points)
+
+    metrics = list(reversed(db.execute(stmt_m).scalars().all()))
+    anomalies = list(reversed(db.execute(stmt_a).scalars().all()))
 
     model_stmt = (
         select(TrainedModel)
@@ -298,11 +316,24 @@ def get_dashboard_data(
 
 # ─── Metrics ────────────────────────────────────────────────────────────────
 @app.get("/db-metrics")
-def get_metrics(device: str | None = None, db: Session = Depends(get_db)):
-    stmt = select(Metric)
+def get_metrics(
+    device: str | None = None,
+    hours: int = Query(default=1, le=24 * 7),
+    before: datetime | None = None,
+    limit: int = Query(default=500, le=5000),
+    db: Session = Depends(get_db),
+):
+    since = datetime.now(UTC) - timedelta(hours=hours)
+    stmt = select(Metric).where(Metric.timestamp >= since)
     if device:
         stmt = stmt.where(Metric.device == device)
-    return db.execute(stmt).scalars().all()
+    if before:
+        stmt = stmt.where(Metric.timestamp < before)
+    stmt = stmt.order_by(Metric.timestamp.desc()).limit(limit)
+    rows = db.execute(stmt).scalars().all()
+
+    next_cursor = rows[-1].timestamp if len(rows) == limit else None
+    return {"items": rows, "next_cursor": next_cursor}
 
 
 # ─── Tasks ──────────────────────────────────────────────────────────────────

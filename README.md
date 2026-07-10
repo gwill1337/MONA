@@ -33,16 +33,17 @@ MONA is a K8s-based monitoring and analytics tool managed with Terraform and Hel
 <summary><b>Click to view detailed API endpoints</b></summary>
 
 ### API:
-* main-metrics: `localhost:30080/db-metrics`
-* prometheus targets: `localhost:30080/api/prometheus/targets`
-* anomalies: `localhost:30080/anomalies`
-* model-info: `localhost:30080/model-info`
-* devices(get): `localhost:30080/devices`
-* devices(post): `localhost:30080/devices` *available via curl*
-* devices(delete): `localhost:30080/devices/{device_id}` *available via curl*
-* train(post): `localhost:30080/train` *available via curl*
-* model(delete): `localhost:30080/model` *available via curl*
-* dashboard: `localhost:30080/api/dashboard`
+* Swagger: `localhost:30080/docs`
+* Main-metrics: `localhost:30080/db-metrics`
+* Prometheus targets: `localhost:30080/api/prometheus/targets`
+* Anomalies: `localhost:30080/anomalies`
+* Model-info: `localhost:30080/model-info`
+* Devices(get): `localhost:30080/devices`
+* Devices(post): `localhost:30080/devices` *available via curl*
+* Devices(delete): `localhost:30080/devices/{device_id}` *available via curl*
+* Train(post): `localhost:30080/train` *available via curl*
+* Model(delete): `localhost:30080/model` *available via curl*
+* Dashboard: `localhost:30080/api/dashboard`
 
 </details>
 
@@ -83,30 +84,33 @@ and can be opened via psql:
 kubectl exec -it statefulset/postgres-statefulset -n mona -- psql -U myuser -d mydb
 #              ⬆ pod name                          ⬆ namespace    ⬆ Username ⬆ DB name
 ```
+
 ## CI
-Automated checks run on every push and pull request:
+Automated checks and docker build & push run on every push and pull request:
 
 * **Terraform** — format and validation checks
 * **Helm** — lint and Kubernetes schema validation via kubeconform
 * **YAML** — lint for values and chart files
-* **Python** — ruff lint and format checks
+* **Python** — ruff (lint and format checks), MyPy (type checks), Pytest (Api tests)
+* **Docker** - Docker build & Docker push using repo secrets
 
 ## Architecture
 Here more about architecture and how mona works.
+
 ### ML
 MONA's [**ML model**](https://github.com/gwill1337/MONA/blob/main/mona_core/ml.py) has `CONTAMINATION = 0.05` which means up to 5% of data points might be classified as anomalies, even if there are none.
 To reduce false positive detections, the model is equipped with a limiter `SCORE_THRESHOLD = -0.05`.   
 In other words, it discards anomalies that the model estimates at less than a 5% confidence threshold. To definitively rule out false positives, the model also ignores "combined anomalies" if CPU and RAM usage are below 80%.
 
-### Fast API
+### FastAPI
 #### Config vs Admin Panel Device Management:
 Managing monitored devices in MONA can be done in two ways to ensure flexibility:
 1. Values.yaml: Ideal for bulk-adding devices during deployment and preventing accidental deletions. FastAPI reads these configurations and commits them to the database.
-2. Admin Panel / API: AAllows dynamically adding or removing devices on the fly via HTTP POST/DELETE requests.
+2. Admin Panel / API: Allows dynamically adding or removing devices on the fly via HTTP POST/DELETE requests.
 
 Prometheus consistently scrapes a dedicated endpoint to fetch the most up-to-date list of devices from the database, seamlessly merging both approaches.
 
-#### Fast API & Celery:
+#### FastAPI & Celery:
 To maintain a responsive REST API, heavy ML model training tasks are offloaded to Celery. Because these tasks are asynchronous, FastAPI implements a dedicated task-tracking endpoint using Redis to reliably monitor task status and return responses.
 
 ### deploy & liveness:
