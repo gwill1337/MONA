@@ -93,7 +93,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv pip install --frozen --group ci
+          uv sync --frozen --only-group ci
 
       - name: Mypy type check
         run: uv run mypy mona_core/
