@@ -91,21 +91,21 @@ jobs:
           python-version: '3.13'
           enable-cache: true
 
-      - name: Install dependencies
-        run: |
-          uv sync --frozen --only-group ci
+      # - name: Install dependencies
+      #   run: |
+      #     uv sync --frozen --only-group ci
 
       - name: Mypy type check
-        run: uv run mypy mona_core/
+        run: uvx run mypy mona_core/
 
       - name: Ruff lint
-        run: uv run ruff check .
+        run: uvx run ruff check .
 
       - name: Ruff format check
-        run: uv run ruff format --check .
+        run: uvx run ruff format --check .
       
       - name: pytest
-        run: uv run pytest tests/
+        run: uvx run pytest tests/
 
   docker:
     name: Build and Push Docker Images
