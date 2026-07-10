@@ -96,16 +96,16 @@ jobs:
       #     uv sync --frozen --only-group ci
 
       - name: Mypy type check
-        run: uvx run mypy mona_core/
+        run: uvx mypy mona_core/
 
       - name: Ruff lint
-        run: uvx run ruff check .
+        run: uvx ruff check .
 
       - name: Ruff format check
-        run: uvx run ruff format --check .
+        run: uvx ruff format --check .
       
       - name: pytest
-        run: uvx run pytest tests/
+        run: uvx pytest tests/
 
   docker:
     name: Build and Push Docker Images
