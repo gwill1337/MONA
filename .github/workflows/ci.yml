@@ -92,13 +92,13 @@ jobs:
           enable-cache: true
 
       - name: Mypy type check
-        run: uvx mypy mona_core/
+        run: uv run mypy mona_core/
 
       - name: Ruff lint
-        run: uvx ruff check .
+        run: uv run ruff check .
 
       - name: Ruff format check
-        run: uvx ruff format --check .
+        run: uv run ruff format --check .
       
       - name: pytest
         run: uv run pytest tests/
