@@ -53,10 +53,14 @@ spec:
               value: "postgresql://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password }}@postgres:{{ .Values.postgres.service.port }}/{{ .Values.postgres.auth.database }}"
             - name: REDIS_URL
               value: {{ include "mona.redisUrl" . | quote }}
-            - name: ADMIN_USERNAME
-              value: {{ .Values.fastapi.env.ADMIN_USERNAME | quote }}
-            - name: ADMIN_PASSWORD
-              value: {{ .Values.fastapi.env.ADMIN_PASSWORD | quote }}
+            - name: ADMIN_USERNAMES
+              value: {{ .Values.fastapi.env.ADMIN_USERNAMES | quote }}
+            - name: ADMIN_PASSWORDS
+              value: {{ .Values.fastapi.env.ADMIN_PASSWORDS | quote }}
+            - name: USER_USERNAMES
+              value: {{ .Values.fastapi.env.USER_USERNAMES | quote }}
+            - name: USER_PASSWORDS
+              value: {{ .Values.fastapi.env.USER_PASSWORDS | quote }}
 
 ---
 

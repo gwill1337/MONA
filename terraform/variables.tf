@@ -9,12 +9,21 @@ variable "telegram_chat_id" {
 }
 
 variable "admin_username" {
-  type    = string
-  default = "admin"
+  type    = list(string)
+  sensitive = true
 }
 
 variable "admin_password" {
-  type      = string
+  type      = list(string)
+  sensitive = true
+}
+
+variable "user_username" {
+  type    = list(string)
+  sensitive = true
+}
+variable "user_password" {
+  type    = list(string)
   sensitive = true
 }
 

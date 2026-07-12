@@ -72,12 +72,13 @@ class TrainedModel(Base):
     note: Mapped[str] = mapped_column(nullable=True)
 
 
-class AdminUser(Base):
-    __tablename__ = "admin_users"
+class Users(Base):
+    __tablename__ = "users"
 
     id: Mapped[int_pk]
     username: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str]
+    role: Mapped[str] = mapped_column(default="user")
 
     def set_password(self, password: str):
         salt = bcrypt.gensalt()

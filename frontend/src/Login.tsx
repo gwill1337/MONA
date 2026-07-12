@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { Shield, Lock, User } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 const API_BASE = "http://localhost:30080";
 
 export default function LoginPage() {
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const from = location.state?.from?.pathname || "/dashboard";
 
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
@@ -35,7 +38,7 @@ export default function LoginPage() {
             if (!res.ok)
                 throw new Error(data.detail);
 
-            navigate("/dashboard");
+            navigate(from, { replace: true });
         }
         catch (e:any) {
             setError(e.message);

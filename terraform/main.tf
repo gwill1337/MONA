@@ -125,12 +125,20 @@ resource "helm_release" "mona_app" {
     value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
   }
   set_sensitive {
-    name  = "fastapi.env.ADMIN_USERNAME"
-    value = var.admin_username
+    name  = "fastapi.env.ADMIN_USERNAMES"
+    value = replace(join(",", var.admin_username), ",", "\\,")
   }
   set_sensitive {
-    name  = "fastapi.env.ADMIN_PASSWORD"
-    value = var.admin_password
+    name  = "fastapi.env.ADMIN_PASSWORDS"
+    value = replace(join(",", var.admin_password), ",", "\\,")
+  }
+  set_sensitive {
+    name  = "fastapi.env.USER_USERNAMES"
+    value = replace(join(",", var.user_username), ",", "\\,")
+  }
+  set_sensitive {
+    name  = "fastapi.env.USER_PASSWORDS"
+    value = replace(join(",", var.user_password), ",", "\\,")
   }
 
   set_sensitive {

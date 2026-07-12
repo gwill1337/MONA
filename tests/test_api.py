@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from mona_core.db import AdminUser, Anomaly, Device, Metric, TrainedModel
+from mona_core.db import Users, Anomaly, Device, Metric, TrainedModel
 
 
 class TestProbes:
@@ -460,7 +460,7 @@ class TestPrometheus:
 
 class TestAuth:
     def test_valid_login(self, client, db_session, mock_redis):
-        admin = AdminUser(username="admin")
+        admin = Users(username="admin")
         admin.set_password("123456")
 
         db_session.add(admin)
@@ -475,7 +475,7 @@ class TestAuth:
         assert "admin_session" in resp.cookies
 
     def test_invalid_login(self, client, db_session, mock_redis):
-        admin = AdminUser(username="admin")
+        admin = Users(username="admin")
         admin.set_password("password123")
 
         db_session.add(admin)
@@ -504,7 +504,7 @@ class TestAuth:
         assert resp.json()["status"] == "ok"
 
     def test_password_hash(self):
-        admin = AdminUser(username="admin")
+        admin = Users(username="admin")
 
         admin.set_password("123456")
 
@@ -513,8 +513,8 @@ class TestAuth:
         assert not admin.check_password("qwerty")
 
     def test_password_hash_random_salt(self):
-        a = AdminUser(username="a")
-        b = AdminUser(username="b")
+        a = Users(username="a")
+        b = Users(username="b")
 
         a.set_password("123456")
         b.set_password("123456")

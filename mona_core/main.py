@@ -1,3 +1,4 @@
+import json
 import os
 import secrets
 import re
@@ -6,8 +7,6 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
 from celery import Celery
-
-# from dotenv import load_dotenv
 from fastapi import APIRouter, Cookie, Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -17,7 +16,7 @@ from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 from mona_core.db import (
-    AdminUser,
+    Users,
     Anomaly,
     Base,
     Device,
@@ -26,8 +25,6 @@ from mona_core.db import (
     TrainedModel,
     engine,
 )
-
-# load_dotenv()
 
 
 
@@ -104,40 +101,58 @@ def validate_ip_address(ip: str) -> str:
         raise ValueError("Must be a valid IPv4 or IPv6 address")
     return ip
 # ─── Startup ────────────────────────────────────────────────────────────────
-def seed_admin():
-    username = os.getenv("ADMIN_USERNAME")
-    password = os.getenv("ADMIN_PASSWORD")
+def _read_pair_list(usernames_env: str, passwords_env: str) -> tuple[list[str], list[str]]:
+    usernames = [u.strip() for u in os.getenv(usernames_env, "").split(",") if u.strip()]
+    passwords = [p.strip() for p in os.getenv(passwords_env, "").split(",") if p.strip()]
+    return usernames, passwords
 
-    if not username or not password:
-        return {}
+def _seed_role(usernames: list[str], passwords: list[str], role: str, db: Session) -> None:
+    if len(usernames) != len(passwords):
+        print(f"Warning: mismatched username/password count for role '{role}', skipping")
+        return
+    for username, password in zip(usernames, passwords):
+        exists = db.execute(select(Users).where(Users.username == username)).scalar_one_or_none()
+        if not exists:
+            account = Users(username=username, role=role)
+            account.set_password(password)
+            db.add(account)
+
+def seed_admin():
+    admin_usernames, admin_passwords = _read_pair_list("ADMIN_USERNAMES", "ADMIN_PASSWORDS")
+    user_usernames, user_passwords = _read_pair_list("USER_USERNAMES", "USER_PASSWORDS")
+
+    if not admin_usernames and not user_usernames:
+        return
+
     with SessionLocal() as db:
         try:
-            stmt = select(AdminUser).where(AdminUser.username == username)
-            exists = db.execute(stmt).scalar_one_or_none()
-
-            if not exists:
-                admin = AdminUser(username=username)
-                admin.set_password(password)
-                db.add(admin)
-                db.commit()
+            _seed_role(admin_usernames, admin_passwords, "admin", db)
+            _seed_role(user_usernames, user_passwords, "user", db)
+            db.commit()
         except Exception as e:
             db.rollback()
             print(f"Error: {e}")
 
 
 # ─── Auth ────────────────────────────────────────────────────────────────
-async def get_current_admin(admin_session: str | None = Cookie(None)):
-    if not admin_session:
+async def get_current_user(user_session: str | None = Cookie(None)) -> dict:
+    if not user_session:
         raise HTTPException(status_code=401, detail="You are not auth(Cokie not found)")
 
-    admin_id = await redis_client.get(f"session:{admin_session}")
-    if not admin_id:
+    raw = await redis_client.get(f"session:{user_session}")
+    if not raw:
         raise HTTPException(status_code=401, detail="Session expired or not valid")
 
-    return admin_id
+    return json.loads(raw)
 
 
-admin_router = APIRouter(dependencies=[Depends(get_current_admin)])
+async def require_admin(user: dict = Depends(get_current_user)) -> dict:
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    return user
+
+user_router = APIRouter(dependencies=[Depends(get_current_user)])
+admin_router = APIRouter(dependencies=[Depends(require_admin)])
 
 
 # ─── API endpoints ──────────────────────────────────────────────────────────
@@ -159,45 +174,45 @@ def readiness_probe(db: Session = Depends(get_db)):
 # ─── login & logout ─────────────────────────────────────────────────────────
 @app.post("/api/auth/login", tags=["Auth"])
 async def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
-    stmt = select(AdminUser).where(AdminUser.username == body.username)
+    stmt = select(Users).where(Users.username == body.username)
     admin = db.execute(stmt).scalar_one_or_none()
 
     if not admin or not admin.check_password(body.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     session_id = secrets.token_urlsafe(32)
-
-    await redis_client.set(f"session:{session_id}", admin.id, ex=43200)
+    session_data = json.dumps({"id": admin.id, "username": admin.username, "role": admin.role})
+    await redis_client.set(f"session:{session_id}", session_data, ex=43200)
 
     response.set_cookie(
-        key="admin_session",
+        key="user_session",
         value=session_id,
         httponly=True,
         secure=False,
         samesite="lax",
         max_age=43200,
     )
-    return {"status": "ok", "message": "Successfully login"}
+    return {"status": "ok", "message": "Successfully login", "role": admin.role}
 
 
 @app.post("/api/auth/logout", tags=["Auth"])
-async def logout(response: Response, admin_session: str | None = Cookie(None)):
-    if admin_session:
-        await redis_client.delete(f"session:{admin_session}")
+async def logout(response: Response, user_session: str | None = Cookie(None)):
+    if user_session:
+        await redis_client.delete(f"session:{user_session}")
 
-    response.delete_cookie("admin_session")
+    response.delete_cookie("user_session")
     return {"status": "ok", "message": "Successfuly logout"}
 
 
 @app.get("/api/auth/me")
-async def auth_me(admin=Depends(get_current_admin)):
+async def auth_me(admin=Depends(get_current_user)):
     return {"authenticated": True}
 
 
 # ─── Devices ────────────────────────────────────────────────────────────────
 
 
-@admin_router.get("/devices")
+@user_router.get("/devices")
 def list_devices(db: Session = Depends(get_db)):
     stmt = select(Device)
     return db.execute(stmt).scalars().all()
@@ -256,7 +271,7 @@ def get_prometheus_targets(db: Session = Depends(get_db)):
 
 
 # ─── Model ──────────────────────────────────────────────────────────────────
-@admin_router.get("/anomalies")
+@user_router.get("/anomalies")
 def get_anomalies(
     hours: int = 24,
     device: str | None = None,
@@ -294,7 +309,7 @@ def get_anomalies(
     }
 
 
-@admin_router.get("/model-info")
+@user_router.get("/model-info")
 def model_info(db: Session = Depends(get_db)):
     stmt = (
         select(TrainedModel)
@@ -363,7 +378,7 @@ def delete_model(db: Session = Depends(get_db)):
 
 
 # ─── Dashboard ──────────────────────────────────────────────────────────────
-@admin_router.get("/api/dashboard")
+@user_router.get("/api/dashboard")
 def get_dashboard_data(
     hours: int = 1,
     device: str | None = None,
@@ -441,7 +456,7 @@ def get_dashboard_data(
 
 
 # ─── Metrics ────────────────────────────────────────────────────────────────
-@admin_router.get("/db-metrics")
+@user_router.get("/db-metrics")
 def get_metrics(
     device: str | None = None,
     hours: int = Query(default=1, le=24 * 7),
@@ -463,7 +478,7 @@ def get_metrics(
 
 
 # ─── Tasks ──────────────────────────────────────────────────────────────────
-@admin_router.get("/task-status/{task_id}")
+@user_router.get("/task-status/{task_id}")
 def get_task_status(task_id: str):
     result = celery_client.AsyncResult(task_id)
 
@@ -484,3 +499,4 @@ def get_task_status(task_id: str):
 
 
 app.include_router(admin_router)
+app.include_router(user_router)
