@@ -40,6 +40,14 @@ spec:
                 sleep 2;
               done;
               echo "PostgreSQL is available!"
+        - name: alembic-upgrade
+          image: "{{ .Values.images.fastapi.repository }}:{{ .Values.images.fastapi.tag }}"
+          imagePullPolicy: {{ .Values.images.fastapi.pullPolicy }}
+          command: ["alembic", "upgrade", "head"]
+          env:
+            - name: DATABASE_URL
+              value: {{ .Values.fastapi.env.DATABASE_URL | quote }}
+
       containers:
         - name: fastapi
           image: "{{ .Values.images.fastapi.repository }}:{{ .Values.images.fastapi.tag }}"
@@ -50,7 +58,7 @@ spec:
             {{- toYaml .Values.fastapi.resources | nindent 12 }}
           env:
             - name: DATABASE_URL
-              value: "postgresql://{{ .Values.postgres.auth.username }}:{{ .Values.postgres.auth.password }}@postgres:{{ .Values.postgres.service.port }}/{{ .Values.postgres.auth.database }}"
+              value: {{ .Values.fastapi.env.DATABASE_URL | quote }}
             - name: REDIS_URL
               value: {{ include "mona.redisUrl" . | quote }}
             - name: ADMIN_USERNAMES

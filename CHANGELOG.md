@@ -2,10 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [v0.4.0] - 2026-13-07
+### Added
+- Added AuthZ
+- Added tests for API(AuthZ).
+- Added validation to "[POST] /devices" for frontend and backend.
+- Added support for multiple creating admins or users on startup. 
+
+### Changed
+Splited main.py to 3 files:
+* security.py
+* validators.py
+* main.py
+
+
+
 ## [v0.3.0] - 2026-11-07
 ### Added
 - Added tests for API, tasks, DB and ML.
-- Added Auth and sessions.
+- Added AuthN and sessions.
 - Added login window for frontend.
 
 

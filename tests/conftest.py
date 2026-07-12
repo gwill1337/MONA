@@ -12,6 +12,7 @@ os.environ["REDIS_URL"] = "redis://localhost:6379/15"
 
 from mona_core import db as db_module  # noqa: E402
 from mona_core import main as main_module  # noqa: E402
+from mona_core import security as security_module  # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -81,7 +82,7 @@ def mock_celery(monkeypatch):
 
 @pytest.fixture()
 def mock_user_auth():
-    from mona_core.main import get_current_user
+    from mona_core.security import get_current_user
 
     main_module.app.dependency_overrides[get_current_user] = lambda: {
         "id": 1,
@@ -93,7 +94,7 @@ def mock_user_auth():
 
 @pytest.fixture()
 def mock_admin_auth():
-    from mona_core.main import get_current_user
+    from mona_core.security import get_current_user
 
     main_module.app.dependency_overrides[get_current_user] = lambda: {
         "id": 2,
@@ -122,5 +123,5 @@ class FakeRedis:
 @pytest.fixture()
 def mock_redis(monkeypatch):
     fake = FakeRedis()
-    monkeypatch.setattr(main_module, "redis_client", fake)
+    monkeypatch.setattr(security_module, "redis_client", fake)
     return fake
