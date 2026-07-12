@@ -37,8 +37,8 @@ images:
 fastapi:
   replicas: 1
   env:
-    ADMIN_USERNAME: ""
-    ADMIN_PASSWORD: ""
+    ADMIN_USERNAME: "admin"
+    ADMIN_PASSWORD: "admin123"
   service:
     type: NodePort
     port: 80

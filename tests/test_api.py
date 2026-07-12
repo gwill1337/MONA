@@ -88,6 +88,89 @@ class TestDevices:
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Device not found"
 
+class TestValidation:
+    @pytest.mark.parametrize(
+        "ip, name",
+        [
+            ("10.0.0", "test"),
+            ("10", "test-10"),
+            ("test", "srv-10"),
+            ("2001:db8::1::2", "pc-12"),
+            ("gggg::1", "srv-ipv6"),
+            ("12345::1", "test-ipv6")
+        ],
+    )
+    def test_create_device_invalid_ip(self, client, ip, name, mock_admin_auth):
+        payload = {"ip": ip, "name": name, "is_active": True}
+        resp = client.post("/devices", json=payload)
+
+        assert resp.status_code == 422
+        assert resp.json()["detail"][0]["msg"] == "Value error, Must be a valid IPv4 or IPv6 address"
+
+    @pytest.mark.parametrize(
+        "ip, name",
+        [
+            ("172.16.0.5", "{1==1}"),
+            ("10.0.1.10", "bad_u$er}"),
+            ("192.168.0.10", "} job {"),
+            ("::1", "pc 12"),
+            ("2001:db8::ff00:42:8329", "1234567890101112"),
+            ("2001:0db8:0000:0000:0000:8a2e:0370:7334", "SRV-123456789101111")
+        ],
+    )
+    def test_create_device_invalid_name(self, ip, name, client, mock_admin_auth):
+            payload = {"ip": ip, "name": name, "is_active": True}
+            resp = client.post("/devices", json=payload)
+
+            assert resp.status_code == 422
+            assert resp.json()["detail"][0]["msg"] == "Value error, Name can only contain letters, numbers, '_' and '-' (up to 15 characters)"
+    
+    @pytest.mark.parametrize(
+        "ip, name",
+        [
+            ("192.168.1.20", "a" * 15),
+            ("192.168.1.21", "a"),
+            ("192.168.1.22", "srv_01-test"),
+            ("2001:db8::1", "ipv6-device"),
+        ],
+    )
+    def test_create_device_valid_name(self, client, ip, name, mock_admin_auth):
+        resp = client.post("/devices", json={"ip": ip, "name": name, "is_active": True})
+        assert resp.status_code == 201
+        assert resp.json()["name"] == name
+    
+    def test_create_device_ip_leading_zeros_rejected(self, client, mock_admin_auth):
+        resp = client.post("/devices", json={"ip": "192.168.001.001", "name": "test", "is_active": True})
+        assert resp.status_code == 422
+
+    def test_create_device_ip_cidr_rejected(self, client, mock_admin_auth):
+        resp = client.post("/devices", json={"ip": "10.0.0.1/24", "name": "test", "is_active": True})
+        assert resp.status_code == 422
+
+    def test_create_device_trims_whitespace(self, client, mock_admin_auth):
+        resp = client.post("/devices", json={"ip": "  192.168.1.30  ", "name": "  trimmed-name  ", "is_active": True})
+        assert resp.status_code == 201
+        body = resp.json()
+        assert body["ip"] == "192.168.1.30"
+        assert body["name"] == "trimmed-name"
+
+    def test_create_device_missing_name(self, client, mock_admin_auth):
+        resp = client.post("/devices", json={"ip": "192.168.1.40", "is_active": True})
+        assert resp.status_code == 422
+        assert resp.json()["detail"][0]["type"] == "missing"
+
+    def test_create_device_name_wrong_type(self, client, mock_admin_auth):
+        resp = client.post("/devices", json={"ip": "192.168.1.41", "name": 12345, "is_active": True})
+        assert resp.status_code == 422
+
+    def test_create_device_ipv4_mapped_ipv6(self, client, mock_admin_auth):
+        resp = client.post(
+            "/devices",
+            json={"ip": "::ffff:192.168.1.1", "name": "mapped-ipv6", "is_active": True},
+        )
+        assert resp.status_code == 201
+        assert resp.json()["ip"] == "::ffff:192.168.1.1"
+
 
 class TestModel:
     def test_model_info_no_model(self, client, mock_admin_auth):

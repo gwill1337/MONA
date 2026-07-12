@@ -21,6 +21,32 @@ interface Device {
   is_active: boolean;
 }
 
+// ─── Validation (mirrors backend rules — see note below for why) ───────────
+// Device name is injected into a PromQL label matcher on the backend
+// (job="{name}"), so only a safe allow-list is accepted: letters, digits,
+// underscore and hyphen. This mirrors the backend's Pydantic validator.
+const DEVICE_NAME_RE = /^[a-zA-Z0-9_-]{1,15}$/;
+
+function isValidIp(ip: string): boolean {
+  const v = ip.trim();
+
+  const v4parts = v.split(".");
+  if (v4parts.length === 4) {
+    return v4parts.every(
+      (p) => /^\d{1,3}$/.test(p) && Number(p) <= 255 && p === String(Number(p))
+    );
+  }
+
+  // Lightweight IPv6 sanity check — the backend does the authoritative
+  // check with Python's `ipaddress` module, this is just for fast feedback.
+  return /^[0-9a-fA-F:]+$/.test(v) && v.includes(":");
+}
+
+interface FieldErrors {
+  ip?: string;
+  name?: string;
+}
+
 // ─── Pulse dot ──────────────────────────────────────────────────────────────
 const PulseDot = ({ active }: { active: boolean }) => (
   <span className="relative flex h-2.5 w-2.5">
@@ -44,7 +70,7 @@ function ConfirmDeleteModal({ device, onClose, onConfirm }: ConfirmDeleteModalPr
       <div className="relative w-full max-w-sm mx-4 rounded-2xl border border-red-500/30 bg-slate-900 shadow-2xl shadow-black/60 overflow-hidden">
         {/* Header glow bar */}
         <div className="h-px w-full bg-gradient-to-r from-transparent via-red-500 to-transparent" />
-        
+
         <div className="p-6 text-center">
           <div className="mx-auto w-12 h-12 flex items-center justify-center rounded-full bg-red-500/10 text-red-500 mb-4">
             <Trash2 size={24} />
@@ -53,7 +79,7 @@ function ConfirmDeleteModal({ device, onClose, onConfirm }: ConfirmDeleteModalPr
           <p className="text-sm text-slate-400 mb-6">
             Are you sure you want to remove <span className="text-slate-300 font-mono">{device.ip}</span>? This action cannot be undone.
           </p>
-          
+
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -83,12 +109,32 @@ function AddDeviceModal({ onClose, onAdded }: AddDeviceModalProps) {
   const [form, setForm] = useState({ ip: "", name: "", is_active: true });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  const validate = (): boolean => {
+    const errs: FieldErrors = {};
+    const name = form.name.trim();
+    const ip = form.ip.trim();
+
+    if (!name) {
+      errs.name = "Name is required.";
+    } else if (!DEVICE_NAME_RE.test(name)) {
+      errs.name = "Only letters, digits, '_' and '-' are allowed (max 15 chars).";
+    }
+
+    if (!ip) {
+      errs.ip = "IP address is required.";
+    } else if (!isValidIp(ip)) {
+      errs.ip = "Enter a valid IPv4 or IPv6 address.";
+    }
+
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   const handleSubmit = async () => {
-    if (!form.ip.trim() || !form.name.trim()) {
-      setError("IP and name are required.");
-      return;
-    }
+    if (!validate()) return;
+
     setLoading(true);
     setError("");
     try {
@@ -98,7 +144,25 @@ function AddDeviceModal({ onClose, onAdded }: AddDeviceModalProps) {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        throw new Error(d.detail || `HTTP ${res.status}`);
+
+        // If the backend rejected the payload on validation grounds
+        // (FastAPI/Pydantic 422), map the errors back onto the fields
+        // instead of showing a generic message.
+        if (Array.isArray(d.detail)) {
+          const errs: FieldErrors = {};
+          for (const item of d.detail) {
+            const field = item.loc?.[item.loc.length - 1];
+            if (field === "name" || field === "ip") {
+              errs[field as "name" | "ip"] = item.msg;
+            }
+          }
+          if (Object.keys(errs).length) {
+            setFieldErrors(errs);
+            return;
+          }
+        }
+
+        throw new Error(typeof d.detail === "string" ? d.detail : `HTTP ${res.status}`);
       }
       onAdded();
       onClose();
@@ -138,9 +202,19 @@ function AddDeviceModal({ onClose, onAdded }: AddDeviceModalProps) {
                 type="text"
                 placeholder="192.168.1.10"
                 value={form.ip}
-                onChange={(e) => setForm((f) => ({ ...f, ip: e.target.value }))}
-                className="w-full bg-slate-800/60 border border-slate-700/70 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500/70 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono"
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, ip: e.target.value }));
+                  if (fieldErrors.ip) setFieldErrors((fe) => ({ ...fe, ip: undefined }));
+                }}
+                className={`w-full bg-slate-800/60 border text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 transition-all font-mono ${
+                  fieldErrors.ip
+                    ? "border-red-500/70 focus:border-red-500 focus:ring-red-500/30"
+                    : "border-slate-700/70 focus:border-cyan-500/70 focus:ring-cyan-500/30"
+                }`}
               />
+              {fieldErrors.ip && (
+                <p className="mt-1.5 text-xs text-red-400">{fieldErrors.ip}</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1.5 uppercase tracking-widest">
@@ -150,9 +224,19 @@ function AddDeviceModal({ onClose, onAdded }: AddDeviceModalProps) {
                 type="text"
                 placeholder="pc-office-01"
                 value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="w-full bg-slate-800/60 border border-slate-700/70 text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-cyan-500/70 focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono"
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, name: e.target.value }));
+                  if (fieldErrors.name) setFieldErrors((fe) => ({ ...fe, name: undefined }));
+                }}
+                className={`w-full bg-slate-800/60 border text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 transition-all font-mono ${
+                  fieldErrors.name
+                    ? "border-red-500/70 focus:border-red-500 focus:ring-red-500/30"
+                    : "border-slate-700/70 focus:border-cyan-500/70 focus:ring-cyan-500/30"
+                }`}
               />
+              {fieldErrors.name && (
+                <p className="mt-1.5 text-xs text-red-400">{fieldErrors.name}</p>
+              )}
             </div>
             <div className="flex items-center justify-between py-1">
               <span className="text-xs font-medium text-slate-400 uppercase tracking-widest">Active</span>
@@ -345,7 +429,7 @@ export default function DeviceAdmin() {
           method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete device");
-      
+
       setDeviceToDelete(null);
       fetchDevices();
     } catch (e: any) {
