@@ -30,7 +30,7 @@ class TestProbes:
 
 
 class TestDevices:
-    def test_get_device_empty(self, client, mock_admin_auth):
+    def test_get_device_empty(self, client, mock_user_auth):
         resp = client.get("/devices")
         assert resp.status_code == 200
         assert resp.json() == []
@@ -173,7 +173,7 @@ class TestValidation:
 
 
 class TestModel:
-    def test_model_info_no_model(self, client, mock_admin_auth):
+    def test_model_info_no_model(self, client, mock_user_auth):
         resp = client.get("/model-info")
         assert resp.status_code == 200
         assert resp.json() == {
@@ -181,7 +181,7 @@ class TestModel:
             "message": "Model is not manually trained yet. Using auto-mode.",
         }
 
-    def test_model_info_with_model(self, client, db_session, mock_admin_auth):
+    def test_model_info_with_model(self, client, db_session, mock_user_auth):
         db_session.add(
             TrainedModel(
                 model_data=b"binary-blob",
@@ -202,7 +202,7 @@ class TestModel:
         assert body["model"]["note"] == "nightly training"
 
     def test_model_info_ignores_non_user_trained(
-        self, client, db_session, mock_admin_auth
+        self, client, db_session, mock_user_auth
     ):
         db_session.add(
             TrainedModel(
@@ -247,12 +247,12 @@ class TestModel:
 
 
 class TestDashboardAndMetrics:
-    def test_db_metrics_empty(self, client, mock_admin_auth):
+    def test_db_metrics_empty(self, client, mock_user_auth):
         resp = client.get("/db-metrics")
         assert resp.status_code == 200
         assert resp.json() == {"items": [], "next_cursor": None}
 
-    def test_db_metrics_filter_by_device(self, client, db_session, mock_admin_auth):
+    def test_db_metrics_filter_by_device(self, client, db_session, mock_user_auth):
         db_session.add_all(
             [
                 Metric(cpu=10, ram=20, device="srv-1"),
@@ -267,7 +267,7 @@ class TestDashboardAndMetrics:
         assert body["items"][0]["device"] == "srv-1"
 
     def test_dashboard_combines_metrics_anomalies_and_model(
-        self, client, db_session, mock_admin_auth
+        self, client, db_session, mock_user_auth
     ):
         now = datetime.now(UTC)
         db_session.add_all(
@@ -295,7 +295,7 @@ class TestDashboardAndMetrics:
         assert len(body["anomalies"]) == 1
         assert body["model"] is None
 
-    def test_dashboard_respects_time_window(self, client, db_session, mock_admin_auth):
+    def test_dashboard_respects_time_window(self, client, db_session, mock_user_auth):
         old = datetime.now(UTC) - timedelta(hours=5)
         db_session.add(Metric(cpu=1, ram=1, device="srv-1", timestamp=old))
         db_session.commit()
@@ -328,7 +328,7 @@ class TestTasks:
         call = mock_celery["send_task_calls"][0]
         assert call["name"] == "tasks.train_model_task"
 
-    def test_task_status_pending(self, client, mock_celery, mock_admin_auth):
+    def test_task_status_pending(self, client, mock_celery, mock_user_auth):
         resp = client.get("/task-status/some-task-id")
         assert resp.status_code == 200
         body = resp.json()
@@ -338,7 +338,7 @@ class TestTasks:
 
         assert mock_celery["async_result_calls"] == ["some-task-id"]
 
-    def test_task_status_success(self, client, mock_celery, mock_admin_auth):
+    def test_task_status_success(self, client, mock_celery, mock_user_auth):
         fake_result_class = type(mock_celery["async_result_return"])
         mock_celery["async_result_return"] = fake_result_class(
             state="SUCCESS", result={"accuracy": 0.97}
@@ -350,7 +350,7 @@ class TestTasks:
         assert body["state"] == "SUCCESS"
         assert body["result"] == {"accuracy": 0.97}
 
-    def test_task_status_failure(self, client, mock_celery, mock_admin_auth):
+    def test_task_status_failure(self, client, mock_celery, mock_user_auth):
         fake_result_class = type(mock_celery["async_result_return"])
         mock_celery["async_result_return"] = fake_result_class(
             state="FAILURE", result="boom: division by zero"
@@ -375,7 +375,7 @@ class TestAnomalies:
             device=device,
         )
 
-    def test_get_anomalies_default_window(self, client, db_session, mock_admin_auth):
+    def test_get_anomalies_default_window(self, client, db_session, mock_user_auth):
         now = datetime.now(UTC)
         db_session.add_all(
             [
@@ -391,7 +391,7 @@ class TestAnomalies:
         assert len(body) == 3
         assert body["items"][0]["device"] == "srv-1"
 
-    def test_get_anomalies_filter_by_device(self, client, db_session, mock_admin_auth):
+    def test_get_anomalies_filter_by_device(self, client, db_session, mock_user_auth):
         now = datetime.now(UTC)
         db_session.add_all(
             [
@@ -408,7 +408,7 @@ class TestAnomalies:
         assert body["items"][0]["device"] == "srv-2"
 
     def test_get_anomalies_hours_zero_disables_time_filter(
-        self, client, db_session, mock_admin_auth
+        self, client, db_session, mock_user_auth
     ):
         now = datetime.now(UTC)
         db_session.add(self._make_anomaly("srv-1", now - timedelta(days=30)))
@@ -418,7 +418,7 @@ class TestAnomalies:
         assert resp.status_code == 200
         assert len(resp.json()) == 3
 
-    def test_get_anomalies_ordered_desc(self, client, db_session, mock_admin_auth):
+    def test_get_anomalies_ordered_desc(self, client, db_session, mock_user_auth):
         now = datetime.now(UTC)
         db_session.add_all(
             [
@@ -472,7 +472,7 @@ class TestAuth:
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
-        assert "admin_session" in resp.cookies
+        assert "user_session" in resp.cookies
 
     def test_invalid_login(self, client, db_session, mock_redis):
         admin = Users(username="admin")
@@ -487,7 +487,7 @@ class TestAuth:
         assert resp.status_code == 401
         assert resp.json()["detail"] == "Invalid username or password"
 
-    def test_auth_me(self, client, mock_admin_auth):
+    def test_auth_me(self, client, mock_user_auth):
         resp = client.get("/api/auth/me")
 
         assert resp.status_code == 200
@@ -520,7 +520,51 @@ class TestAuth:
         b.set_password("123456")
 
         assert a.password_hash != b.password_hash
+    @pytest.mark.parametrize(
+        "method, endpoint",
+        [
+            ("POST", "/devices"),
+            ("DELETE", "/devices/1"),
+            ("POST", "/train?hours=1"),
+            ("DELETE", "/model"),
+        ],
+    )
+    def test_admin_previliges_with_user(self, client,method, endpoint, mock_user_auth):
+        resp = client.request(method, endpoint)
 
+        assert resp.status_code == 403
+
+    @pytest.mark.parametrize(
+        "method, endpoint",
+        [
+            ("GET", "/devices"),
+            ("GET", "/anomalies"),
+            ("GET", "/model-info"),
+            ("GET", "/api/dashboard"),
+            ("GET", "/db-metrics"),
+            ("GET", "/task-status/dummy-task-id-123"),
+        ],
+    )
+    def test_user_previliges_with_user(self, client,method, endpoint, mock_user_auth, mock_celery):
+        resp = client.request(method, endpoint)
+
+        assert resp.status_code == 200
+
+    @pytest.mark.parametrize(
+        "method, endpoint",
+        [
+            ("GET", "/devices"),
+            ("GET", "/anomalies"),
+            ("GET", "/model-info"),
+            ("GET", "/api/dashboard"),
+            ("GET", "/db-metrics"),
+            ("GET", "/task-status/dummy-task-id-123"),
+        ],
+    )
+    def test_user_previliges_with_admin(self, client,method, endpoint, mock_admin_auth, mock_celery):
+        resp = client.request(method, endpoint)
+
+        assert resp.status_code == 200
 
 class TestSecureEndpoints:
     @pytest.mark.parametrize(

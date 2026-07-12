@@ -80,14 +80,28 @@ def mock_celery(monkeypatch):
 
 
 @pytest.fixture()
-def mock_admin_auth():
-    from mona_core.main import get_current_admin
+def mock_user_auth():
+    from mona_core.main import get_current_user
 
-    main_module.app.dependency_overrides[get_current_admin] = lambda: "mock_admin_123"
+    main_module.app.dependency_overrides[get_current_user] = lambda: {
+        "id": 1,
+        "username": "mock_user_123",
+        "role": "user",
+    }
     yield
-
     main_module.app.dependency_overrides.clear()
 
+@pytest.fixture()
+def mock_admin_auth():
+    from mona_core.main import get_current_user
+
+    main_module.app.dependency_overrides[get_current_user] = lambda: {
+        "id": 2,
+        "username": "mock_admin_123",
+        "role": "admin",
+    }
+    yield
+    main_module.app.dependency_overrides.clear()
 
 class FakeRedis:
     def __init__(self):
