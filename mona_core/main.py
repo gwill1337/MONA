@@ -6,10 +6,12 @@ from celery import Celery
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client.core import GaugeMetricFamily, REGISTRY
+from prometheus_client import Counter
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
  
-from mona_core.db import Anomaly, Base, Device, Metric, TrainedModel, engine
+from mona_core.db import Anomaly, Base, Device, Metric, TrainedModel, SessionLocal
 from mona_core.security import (
     admin_router,
     auth_router,
@@ -59,6 +61,37 @@ def readiness_probe(db: Session = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
+#    Alerts
+class AnomalyCollector(object):
+    def collect(self):
+        gauge = GaugeMetricFamily(
+            "mona_anomaly_active", 
+            "Active ML anomalies detected in the last 3 minutes", 
+            labels=["device", "reason"]
+        )
+        
+        db = SessionLocal()
+        try:
+            cutoff = datetime.now(UTC) - timedelta(minutes=0.2)
+            recent_anomalies = db.query(Anomaly).filter(Anomaly.timestamp >= cutoff.replace(tzinfo=None)).all()
+            
+            seen = set()
+            for a in recent_anomalies:
+                label_values = (a.device, a.reason)
+                if label_values not in seen:
+                    gauge.add_metric([a.device, a.reason], 1)
+                    seen.add(label_values)
+        except Exception as e:
+            print(f"Error in Prometheus AnomalyCollector: {e}")
+        finally:
+            db.close()
+            
+        yield gauge
+
+try:
+    REGISTRY.register(AnomalyCollector())
+except ValueError:
+    pass
 
 # ─── Devices ────────────────────────────────────────────────────────────────
 

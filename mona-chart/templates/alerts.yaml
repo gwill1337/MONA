@@ -44,6 +44,19 @@ spec:
             severity: critical
           annotations:
             summary: "PostgreSQL is down"
+
+        - alert: MonaMLAnomalyDetected
+          expr: mona_anomaly_active == 1
+          for: 10s
+          labels:
+            severity: critical
+          annotations:
+            summary: >
+              AI detected an anomaly on device
+              {{ "{{" }} $labels.device {{ "}}" }}
+            description: >
+              Isolation Forest model detected deviation from the norm.
+              Reason: {{ "{{" }} $labels.reason {{ "}}" }}
         # - alert: TestAlertAlwaysFiring
         #   expr: vector(1)
         #   for: 0m

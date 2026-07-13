@@ -66,9 +66,6 @@ def collect_and_save():
 
         active_devices = db.query(Device).filter(Device.is_active).all()
 
-        """
-        надо добавить валидацию
-        """
 
         results = []
         for dev in active_devices:

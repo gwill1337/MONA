@@ -9,18 +9,6 @@ spec:
     matchLabels:
       app: fastapi
   template:
-    livenessProbe:
-      httpGet:
-        path: {{ .Values.fastapi.livenessProbe.httpGet.path }}
-        port: {{ .Values.fastapi.livenessProbe.httpGet.port }}
-      initialDelaySeconds: {{ .Values.fastapi.livenessProbe.initialDelaySeconds }}
-      periodSeconds: {{ .Values.fastapi.livenessProbe.periodSeconds }}
-    readinessProbe:
-      httpGet:
-        path: {{ .Values.fastapi.readinessProbe.httpGet.path }}
-        port: {{ .Values.fastapi.readinessProbe.httpGet.port }}
-      initialDelaySeconds: {{ .Values.fastapi.readinessProbe.initialDelaySeconds }}
-      periodSeconds: {{ .Values.fastapi.readinessProbe.periodSeconds }}
     metadata:
       labels:
         app: fastapi
@@ -54,6 +42,18 @@ spec:
           imagePullPolicy: {{ .Values.images.fastapi.pullPolicy }}
           ports:
             - containerPort: {{ .Values.fastapi.service.targetPort }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.fastapi.livenessProbe.httpGet.path }}
+              port: {{ .Values.fastapi.livenessProbe.httpGet.port }}
+            initialDelaySeconds: {{ .Values.fastapi.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.fastapi.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.fastapi.readinessProbe.httpGet.path }}
+              port: {{ .Values.fastapi.readinessProbe.httpGet.port }}
+            initialDelaySeconds: {{ .Values.fastapi.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.fastapi.readinessProbe.periodSeconds }}
           resources:
             {{- toYaml .Values.fastapi.resources | nindent 12 }}
           env:
@@ -76,11 +76,18 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fastapi
+  labels:
+    app: fastapi
 spec:
   type: {{ .Values.fastapi.service.type }}
   selector:
     app: fastapi
+  # ports:
+  #   - port: {{ .Values.fastapi.service.port }}
+  #     targetPort: {{ .Values.fastapi.service.targetPort }}
+  #     nodePort: {{ .Values.fastapi.service.nodePort }}
   ports:
-    - port: {{ .Values.fastapi.service.port }}
-      targetPort: {{ .Values.fastapi.service.targetPort }}
-      nodePort: {{ .Values.fastapi.service.nodePort }}
+  - name: http
+    port: {{ .Values.fastapi.service.port }}
+    targetPort: {{ .Values.fastapi.service.targetPort }}
+    nodePort: {{ .Values.fastapi.service.nodePort }}

@@ -1,0 +1,21 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: fastapi
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: kube-prometheus-stack
+    app: fastapi
+spec:
+  selector:
+    matchLabels:
+      app: fastapi
+
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
