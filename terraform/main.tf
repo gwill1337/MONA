@@ -52,6 +52,10 @@ resource "kind_cluster" "mona_cluster" {
         host_port      = 30080
       }
       extra_port_mappings {
+        container_port = 30081
+        host_port      = 30081
+      }
+      extra_port_mappings {
         container_port = 30091
         host_port      = 30091
       }
@@ -60,8 +64,8 @@ resource "kind_cluster" "mona_cluster" {
         host_port      = 30300
       }
       extra_port_mappings {
-        container_port = 30081
-        host_port      = 30081
+        container_port = 30391
+        host_port      = 30391
       }
     }
   }
@@ -87,7 +91,7 @@ resource "helm_release" "loki_stack" {
   }
   set {
     name  = "grafana.enabled"
-    value = "false" # grafana уже есть в mona
+    value = "false"
   }
   set {
     name  = "grafana.sidecar.datasources.enabled"

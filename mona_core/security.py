@@ -1,17 +1,18 @@
 import json
 import os
 import secrets
- 
+
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from pydantic import BaseModel
 from redis.asyncio import from_url
 from sqlalchemy import select
 from sqlalchemy.orm import Session
- 
+
 from mona_core.db import SessionLocal, Users
 
 redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
 redis_client = from_url(redis_url, decode_responses=True)
+
 
 # ─── helpers ────────────────────────────────────────────────────────────────
 def get_db():
@@ -21,29 +22,47 @@ def get_db():
     finally:
         db.close()
 
+
 class LoginRequest(BaseModel):
     username: str
     password: str
 
+
 # ─── Startup ────────────────────────────────────────────────────────────────
-def _read_pair_list(usernames_env: str, passwords_env: str) -> tuple[list[str], list[str]]:
-    usernames = [u.strip() for u in os.getenv(usernames_env, "").split(",") if u.strip()]
-    passwords = [p.strip() for p in os.getenv(passwords_env, "").split(",") if p.strip()]
+def _read_pair_list(
+    usernames_env: str, passwords_env: str
+) -> tuple[list[str], list[str]]:
+    usernames = [
+        u.strip() for u in os.getenv(usernames_env, "").split(",") if u.strip()
+    ]
+    passwords = [
+        p.strip() for p in os.getenv(passwords_env, "").split(",") if p.strip()
+    ]
     return usernames, passwords
 
-def _seed_role(usernames: list[str], passwords: list[str], role: str, db: Session) -> None:
+
+def _seed_role(
+    usernames: list[str], passwords: list[str], role: str, db: Session
+) -> None:
     if len(usernames) != len(passwords):
-        print(f"Warning: mismatched username/password count for role '{role}', skipping")
+        print(
+            f"Warning: mismatched username/password count for role '{role}', skipping"
+        )
         return
     for username, password in zip(usernames, passwords):
-        exists = db.execute(select(Users).where(Users.username == username)).scalar_one_or_none()
+        exists = db.execute(
+            select(Users).where(Users.username == username)
+        ).scalar_one_or_none()
         if not exists:
             account = Users(username=username, role=role)
             account.set_password(password)
             db.add(account)
 
+
 def seed_admin():
-    admin_usernames, admin_passwords = _read_pair_list("ADMIN_USERNAMES", "ADMIN_PASSWORDS")
+    admin_usernames, admin_passwords = _read_pair_list(
+        "ADMIN_USERNAMES", "ADMIN_PASSWORDS"
+    )
     user_usernames, user_passwords = _read_pair_list("USER_USERNAMES", "USER_PASSWORDS")
 
     if not admin_usernames and not user_usernames:
@@ -57,6 +76,7 @@ def seed_admin():
         except Exception as e:
             db.rollback()
             print(f"Error: {e}")
+
 
 # ─── Auth ────────────────────────────────────────────────────────────────
 async def get_current_user(user_session: str | None = Cookie(None)) -> dict:
@@ -75,6 +95,7 @@ async def require_admin(user: dict = Depends(get_current_user)) -> dict:
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return user
 
+
 user_router = APIRouter(dependencies=[Depends(get_current_user)])
 admin_router = APIRouter(dependencies=[Depends(require_admin)])
 
@@ -92,7 +113,9 @@ async def login(body: LoginRequest, response: Response, db: Session = Depends(ge
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     session_id = secrets.token_urlsafe(32)
-    session_data = json.dumps({"id": admin.id, "username": admin.username, "role": admin.role})
+    session_data = json.dumps(
+        {"id": admin.id, "username": admin.username, "role": admin.role}
+    )
     await redis_client.set(f"session:{session_id}", session_data, ex=43200)
 
     response.set_cookie(

@@ -1,9 +1,10 @@
 import ipaddress
 import re
- 
+
 from pydantic import BaseModel, field_validator
 
 DEVICE_NAME_RE = re.compile(r"^[a-zA-Z0-9_-]{1,15}$")
+
 
 class DeviceCreate(BaseModel):
     ip: str
@@ -20,6 +21,7 @@ class DeviceCreate(BaseModel):
     def _validate_ip(cls, v: str) -> str:
         return validate_ip_address(v)
 
+
 # ─── Validation ────────────────────────────────────────────────────────────────
 def validate_device_name(name: str) -> str:
     name = name.strip()
@@ -28,6 +30,7 @@ def validate_device_name(name: str) -> str:
             "Name can only contain letters, numbers, '_' and '-' (up to 15 characters)"
         )
     return name
+
 
 def validate_ip_address(ip: str) -> str:
     ip = ip.strip()

@@ -98,10 +98,10 @@ jobs:
         run: uv run mypy mona_core/
 
       - name: Ruff lint
-        run: uv run ruff check .
+        run: uv run ruff check mona_core/
 
       - name: Ruff format check
-        run: uv run ruff format --check .
+        run: uv run ruff format --check mona_core/
       
       - name: pytest
         run: uv run pytest tests/

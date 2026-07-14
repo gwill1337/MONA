@@ -2,7 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from mona_core.db import Users, Anomaly, Device, Metric, TrainedModel
+from mona_core.db import Anomaly, Device, Metric, TrainedModel, Users
 
 
 class TestProbes:
@@ -88,6 +88,7 @@ class TestDevices:
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Device not found"
 
+
 class TestValidation:
     @pytest.mark.parametrize(
         "ip, name",
@@ -97,7 +98,7 @@ class TestValidation:
             ("test", "srv-10"),
             ("2001:db8::1::2", "pc-12"),
             ("gggg::1", "srv-ipv6"),
-            ("12345::1", "test-ipv6")
+            ("12345::1", "test-ipv6"),
         ],
     )
     def test_create_device_invalid_ip(self, client, ip, name, mock_admin_auth):
@@ -105,7 +106,10 @@ class TestValidation:
         resp = client.post("/devices", json=payload)
 
         assert resp.status_code == 422
-        assert resp.json()["detail"][0]["msg"] == "Value error, Must be a valid IPv4 or IPv6 address"
+        assert (
+            resp.json()["detail"][0]["msg"]
+            == "Value error, Must be a valid IPv4 or IPv6 address"
+        )
 
     @pytest.mark.parametrize(
         "ip, name",
@@ -115,16 +119,19 @@ class TestValidation:
             ("192.168.0.10", "} job {"),
             ("::1", "pc 12"),
             ("2001:db8::ff00:42:8329", "1234567890101112"),
-            ("2001:0db8:0000:0000:0000:8a2e:0370:7334", "SRV-123456789101111")
+            ("2001:0db8:0000:0000:0000:8a2e:0370:7334", "SRV-123456789101111"),
         ],
     )
     def test_create_device_invalid_name(self, ip, name, client, mock_admin_auth):
-            payload = {"ip": ip, "name": name, "is_active": True}
-            resp = client.post("/devices", json=payload)
+        payload = {"ip": ip, "name": name, "is_active": True}
+        resp = client.post("/devices", json=payload)
 
-            assert resp.status_code == 422
-            assert resp.json()["detail"][0]["msg"] == "Value error, Name can only contain letters, numbers, '_' and '-' (up to 15 characters)"
-    
+        assert resp.status_code == 422
+        assert (
+            resp.json()["detail"][0]["msg"]
+            == "Value error, Name can only contain letters, numbers, '_' and '-' (up to 15 characters)"
+        )
+
     @pytest.mark.parametrize(
         "ip, name",
         [
@@ -138,17 +145,29 @@ class TestValidation:
         resp = client.post("/devices", json={"ip": ip, "name": name, "is_active": True})
         assert resp.status_code == 201
         assert resp.json()["name"] == name
-    
+
     def test_create_device_ip_leading_zeros_rejected(self, client, mock_admin_auth):
-        resp = client.post("/devices", json={"ip": "192.168.001.001", "name": "test", "is_active": True})
+        resp = client.post(
+            "/devices",
+            json={"ip": "192.168.001.001", "name": "test", "is_active": True},
+        )
         assert resp.status_code == 422
 
     def test_create_device_ip_cidr_rejected(self, client, mock_admin_auth):
-        resp = client.post("/devices", json={"ip": "10.0.0.1/24", "name": "test", "is_active": True})
+        resp = client.post(
+            "/devices", json={"ip": "10.0.0.1/24", "name": "test", "is_active": True}
+        )
         assert resp.status_code == 422
 
     def test_create_device_trims_whitespace(self, client, mock_admin_auth):
-        resp = client.post("/devices", json={"ip": "  192.168.1.30  ", "name": "  trimmed-name  ", "is_active": True})
+        resp = client.post(
+            "/devices",
+            json={
+                "ip": "  192.168.1.30  ",
+                "name": "  trimmed-name  ",
+                "is_active": True,
+            },
+        )
         assert resp.status_code == 201
         body = resp.json()
         assert body["ip"] == "192.168.1.30"
@@ -160,7 +179,9 @@ class TestValidation:
         assert resp.json()["detail"][0]["type"] == "missing"
 
     def test_create_device_name_wrong_type(self, client, mock_admin_auth):
-        resp = client.post("/devices", json={"ip": "192.168.1.41", "name": 12345, "is_active": True})
+        resp = client.post(
+            "/devices", json={"ip": "192.168.1.41", "name": 12345, "is_active": True}
+        )
         assert resp.status_code == 422
 
     def test_create_device_ipv4_mapped_ipv6(self, client, mock_admin_auth):
@@ -520,6 +541,7 @@ class TestAuth:
         b.set_password("123456")
 
         assert a.password_hash != b.password_hash
+
     @pytest.mark.parametrize(
         "method, endpoint",
         [
@@ -529,7 +551,7 @@ class TestAuth:
             ("DELETE", "/model"),
         ],
     )
-    def test_admin_previliges_with_user(self, client,method, endpoint, mock_user_auth):
+    def test_admin_previliges_with_user(self, client, method, endpoint, mock_user_auth):
         resp = client.request(method, endpoint)
 
         assert resp.status_code == 403
@@ -545,7 +567,9 @@ class TestAuth:
             ("GET", "/task-status/dummy-task-id-123"),
         ],
     )
-    def test_user_previliges_with_user(self, client,method, endpoint, mock_user_auth, mock_celery):
+    def test_user_previliges_with_user(
+        self, client, method, endpoint, mock_user_auth, mock_celery
+    ):
         resp = client.request(method, endpoint)
 
         assert resp.status_code == 200
@@ -561,10 +585,13 @@ class TestAuth:
             ("GET", "/task-status/dummy-task-id-123"),
         ],
     )
-    def test_user_previliges_with_admin(self, client,method, endpoint, mock_admin_auth, mock_celery):
+    def test_user_previliges_with_admin(
+        self, client, method, endpoint, mock_admin_auth, mock_celery
+    ):
         resp = client.request(method, endpoint)
 
         assert resp.status_code == 200
+
 
 class TestSecureEndpoints:
     @pytest.mark.parametrize(

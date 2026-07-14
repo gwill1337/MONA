@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: fastapi-deployment
+  name: mona-fastapi
 spec:
   replicas: {{ .Values.fastapi.replicas }}
   selector:

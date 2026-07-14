@@ -4,11 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [v0.5.0] - 2026-07-14
 ### Added
-- Anomaly alerts with alertsmanager
-- DB migrations using alembic
+- Added Anomaly alerts with alertsmanager.
+- Added DB migrations using alembic.
+- Added port for prometheus(Cluster).
 
 ### Changed
 - Upgraded to SQLAlchemy 2.0 (ML, Tasks).
+- Changed port for prometheus(Monitoring devices), from localhost:30091 to localhost:30391.
+- Cleared jobs for prometheus(Monitoring devices).
 
 
 ## [v0.4.0] - 2026-07-13

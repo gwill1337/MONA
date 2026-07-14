@@ -92,6 +92,7 @@ def mock_user_auth():
     yield
     main_module.app.dependency_overrides.clear()
 
+
 @pytest.fixture()
 def mock_admin_auth():
     from mona_core.security import get_current_user
@@ -103,6 +104,7 @@ def mock_admin_auth():
     }
     yield
     main_module.app.dependency_overrides.clear()
+
 
 class FakeRedis:
     def __init__(self):

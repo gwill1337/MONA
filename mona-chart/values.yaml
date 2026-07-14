@@ -120,7 +120,7 @@ prometheus:
     type: NodePort
     port: 9090
     targetPort: 9090
-    nodePort: 30091
+    nodePort: 30391
   resources:
     requests: { cpu: "100m", memory: "256Mi" }
     limits: { cpu: "500m", memory: "1Gi" }
@@ -251,6 +251,9 @@ kube-prometheus-stack:
               maxLines: 1000
   prometheus:
     enabled: true
+    service:
+      type: NodePort
+      nodePort: 30091
     prometheusSpec:
       # Отключаем привязку к helm-релизу
       serviceMonitorSelectorNilUsesHelmValues: false

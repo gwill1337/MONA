@@ -29,7 +29,8 @@ admin_password     = "your_password"
 * **Admin panel:** `localhost:30081/admin` *Default username: admin, password: admin123*
 * **Dashboards:** `localhost:30081/admin/dashboard`
 * **Grafana:** `localhost:30300/` *Default username: admin, password: admin123*
-* **Prometheus:** `localhost:30091/`
+* **Prometheus(Cluster):** `localhost:30091/`
+* **Prometheus(Monitoring devices):** `localhost:30391/`
 
 <details>
 <summary><b>Click to view detailed API endpoints</b></summary>

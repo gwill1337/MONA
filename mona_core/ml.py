@@ -14,10 +14,11 @@ Features (6 items):
 
 import pickle
 from datetime import UTC, datetime, timedelta
-from sqlalchemy import select
+
 import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+from sqlalchemy import select
 
 from mona_core.celery_conf import app
 from mona_core.db import Anomaly, Metric, SessionLocal, TrainedModel
@@ -84,12 +85,16 @@ def _load_user_model(db):
     #     .order_by(TrainedModel.trained_at.desc())
     #     .first()
     # )
-    record = db.execute(
-        select(TrainedModel)
-        .where(TrainedModel.trained_by == "user")
-        .order_by(TrainedModel.trained_at.desc())
-        .limit(1)
-    ).scalars().first()
+    record = (
+        db.execute(
+            select(TrainedModel)
+            .where(TrainedModel.trained_by == "user")
+            .order_by(TrainedModel.trained_at.desc())
+            .limit(1)
+        )
+        .scalars()
+        .first()
+    )
     if record is None:
         return None, None
     model, scaler = pickle.loads(record.model_data)
@@ -118,12 +123,16 @@ def detect_anomalies():
         mode = "skipped"
 
         for device in distinct_devices:
-            rows = db.execute(
-                select(Metric)
-                .where(Metric.device == device, Metric.cpu > 0.1)
-                .order_by(Metric.timestamp.desc())
-                .limit(WINDOW)
-            ).scalars().all()
+            rows = (
+                db.execute(
+                    select(Metric)
+                    .where(Metric.device == device, Metric.cpu > 0.1)
+                    .order_by(Metric.timestamp.desc())
+                    .limit(WINDOW)
+                )
+                .scalars()
+                .all()
+            )
 
             if len(rows) < MIN_POINTS:
                 continue

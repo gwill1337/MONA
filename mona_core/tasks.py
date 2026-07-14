@@ -4,6 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import requests
 from sqlalchemy import select
+
 from mona_core.celery_conf import app
 from mona_core.db import Device, Metric, SessionLocal, TrainedModel
 
@@ -66,10 +67,9 @@ def collect_and_save():
 
         db.commit()
 
-        active_devices = db.execute(
-            select(Device).where(Device.is_active)
-        ).scalars().all()
-
+        active_devices = (
+            db.execute(select(Device).where(Device.is_active)).scalars().all()
+        )
 
         results = []
         for dev in active_devices:
@@ -105,12 +105,16 @@ def train_model_task(hours: float, note: str):
     db = SessionLocal()
     try:
         since = datetime.now(UTC) - timedelta(hours=hours)
-        rows = db.execute(
-            select(Metric)
-            .where(Metric.cpu > 0.1)
-            .where(Metric.timestamp >= since)
-            .order_by(Metric.timestamp)
-        ).scalars().all()
+        rows = (
+            db.execute(
+                select(Metric)
+                .where(Metric.cpu > 0.1)
+                .where(Metric.timestamp >= since)
+                .order_by(Metric.timestamp)
+            )
+            .scalars()
+            .all()
+        )
 
         if len(rows) < 30:
             return {

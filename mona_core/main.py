@@ -1,17 +1,16 @@
 import os
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
- 
+
 from celery import Celery
 from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client.core import REGISTRY, GaugeMetricFamily
 from prometheus_fastapi_instrumentator import Instrumentator
-from prometheus_client.core import GaugeMetricFamily, REGISTRY
-from prometheus_client import Counter
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
- 
-from mona_core.db import Anomaly, Base, Device, Metric, TrainedModel, SessionLocal
+
+from mona_core.db import Anomaly, Device, Metric, SessionLocal, TrainedModel
 from mona_core.security import (
     admin_router,
     auth_router,
@@ -20,8 +19,6 @@ from mona_core.security import (
     user_router,
 )
 from mona_core.validators import DeviceCreate
-
-
 
 
 @asynccontextmanager
@@ -35,7 +32,9 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:30081"],
+    allow_origins=[
+        "http://localhost:30081",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,6 +44,7 @@ redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
 celery_client = Celery("mona", broker=redis_url, backend=redis_url)
 
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
 
 # ─── API endpoints ──────────────────────────────────────────────────────────
 # ─── Probes (Liveness & Readiness) ──────────────────────────────────────────
@@ -61,20 +61,25 @@ def readiness_probe(db: Session = Depends(get_db)):
     except Exception:
         raise HTTPException(status_code=503, detail="Database unavailable")
 
+
 #    Alerts
 class AnomalyCollector(object):
     def collect(self):
         gauge = GaugeMetricFamily(
-            "mona_anomaly_active", 
-            "Active ML anomalies detected in the last 3 minutes", 
-            labels=["device", "reason"]
+            "mona_anomaly_active",
+            "Active ML anomalies detected in the last 3 minutes",
+            labels=["device", "reason"],
         )
-        
+
         db = SessionLocal()
         try:
             cutoff = datetime.now(UTC) - timedelta(minutes=0.2)
-            recent_anomalies = db.query(Anomaly).filter(Anomaly.timestamp >= cutoff.replace(tzinfo=None)).all()
-            
+            recent_anomalies = (
+                db.query(Anomaly)
+                .filter(Anomaly.timestamp >= cutoff.replace(tzinfo=None))
+                .all()
+            )
+
             seen = set()
             for a in recent_anomalies:
                 label_values = (a.device, a.reason)
@@ -85,8 +90,9 @@ class AnomalyCollector(object):
             print(f"Error in Prometheus AnomalyCollector: {e}")
         finally:
             db.close()
-            
+
         yield gauge
+
 
 try:
     REGISTRY.register(AnomalyCollector())
