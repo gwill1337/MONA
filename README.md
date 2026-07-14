@@ -97,17 +97,16 @@ kubectl exec -it statefulset/postgres-statefulset -n mona -- psql -U myuser -d m
 #              ⬆ pod name                          ⬆ namespace    ⬆ Username ⬆ DB name
 ```
 
-## Authentication
+## Authentication & Authorization
 MONA uses a stateful, cookie-based authentication system backed by Redis to secure the admin panel and core API endpoints.
 
 ### Admin Setup
-During deployment, the `seed_admin` function runs automatically on startup. It reads the **ADMIN_USERNAME** and **ADMIN_PASSWORD** environment variables (configured via your terraform.tfvars or Helm values) and provisions the initial admin account in the PostgreSQL database if it does not already exist.
+During deployment, the `seed_admin` function runs automatically on startup. It reads the **ADMIN_USERNAMES**,**ADMIN_PASSWORDS** and **USER_USERNAMES**,**USER_PASSWORDS** environment variables (configured via your terraform.tfvars or Helm values) and provisions the initial user and admin accounts in the PostgreSQL database if it does not already exist.
 
-### How It Works
 * **Session Management:** Upon a successful POST request to `/api/auth/login`, FastAPI generates a cryptographically secure 32-byte session token.
-* **Redis Storage:** This token is stored in the Redis broker with a 12-hour expiration time (`ex=43200`), linking the session to the admin's user ID.
-* **Cookies:** The token is returned to the frontend as an `HttpOnly`, `Lax` cookie named `admin_session`. This ensures the token is automatically sent with subsequent requests while remaining protected from cross-site scripting (XSS) attacks.
-* **Access Control:** Protected endpoints (such as dashboard data, device management, and ML training) are routed through an `admin_router` dependency. This checks Redis for a valid session matching the user's cookie. If the session is missing or expired, the API returns a `401 Unauthorized` error.
+* **Redis Storage:** This token is stored in the Redis broker with a 12-hour expiration time (`ex=43200`), linking the session to the user's ID.
+* **Cookies:** The token is returned to the frontend as an `HttpOnly`, `Lax` cookie named `user_session`. This ensures the token is automatically sent with subsequent requests while remaining protected from cross-site scripting (XSS) attacks.
+* **Access Control:** All protected endpoints — except health checks (`/health/live`, `/health/ready`) and Prometheus metrics (`/api/prometheus/targets`) — are routed through role-aware `user_router` / `admin_router` dependencies that validate the session token against Redis. **Users** are restricted to **GET** requests only, giving them read-only access to dashboards and device data, while **admins** have full access to all methods — `GET`, `POST`, `PUT`, `DELETE` — including device management and ML training endpoints. If the session is missing or expired, the API returns `401 Unauthorized`; if the session is valid but the account's role doesn't permit the requested method, it returns `403 Forbidden`.
 * **Logout:** Endpoint `/api/auth/logout` deletes the session key from Redis and clears the client's cookie.
 
 P.S. Endpoints like `/health/live`, `/health/ready`, and Prometheus target metrics (`/api/prometheus/targets`) are intentionally excluded from authentication to allow seamless cluster monitoring.

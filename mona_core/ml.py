@@ -14,7 +14,7 @@ Features (6 items):
 
 import pickle
 from datetime import UTC, datetime, timedelta
-
+from sqlalchemy import select
 import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
@@ -78,12 +78,18 @@ def _describe_reason(row, cpu_d1, ram_d1, cpu_d5, ram_d5):
 
 def _load_user_model(db):
     """Loads the latest model trained by the user. None if it doesn't exist."""
-    record = (
-        db.query(TrainedModel)
-        .filter(TrainedModel.trained_by == "user")
+    # record = (
+    #     db.query(TrainedModel)
+    #     .filter(TrainedModel.trained_by == "user")
+    #     .order_by(TrainedModel.trained_at.desc())
+    #     .first()
+    # )
+    record = db.execute(
+        select(TrainedModel)
+        .where(TrainedModel.trained_by == "user")
         .order_by(TrainedModel.trained_at.desc())
-        .first()
-    )
+        .limit(1)
+    ).scalars().first()
     if record is None:
         return None, None
     model, scaler = pickle.loads(record.model_data)
@@ -102,23 +108,22 @@ def detect_anomalies():
 
         user_model, user_scaler = _load_user_model(db)
 
-        existing_ids = {a.metric_id for a in db.query(Anomaly.metric_id).all()}
+        existing_ids = set(db.execute(select(Anomaly.metric_id)).scalars().all())
 
         distinct_devices = [
-            r[0] for r in db.query(Metric.device).distinct().all() if r[0]
+            d for d in db.execute(select(Metric.device).distinct()).scalars().all() if d
         ]
 
         new_anomalies = []
         mode = "skipped"
 
         for device in distinct_devices:
-            rows = (
-                db.query(Metric)
-                .filter(Metric.device == device, Metric.cpu > 0.1)
+            rows = db.execute(
+                select(Metric)
+                .where(Metric.device == device, Metric.cpu > 0.1)
                 .order_by(Metric.timestamp.desc())
                 .limit(WINDOW)
-                .all()
-            )
+            ).scalars().all()
 
             if len(rows) < MIN_POINTS:
                 continue
@@ -175,7 +180,7 @@ def detect_anomalies():
                 )
 
         if new_anomalies:
-            db.bulk_save_objects(new_anomalies)
+            db.add_all(new_anomalies)
             db.commit()
 
         return {

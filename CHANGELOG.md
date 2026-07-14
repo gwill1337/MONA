@@ -2,7 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-## [v0.4.0] - 2026-13-07
+## [v0.5.0] - 2026-07-14
+### Added
+- Anomaly alerts with alertsmanager
+- DB migrations using alembic
+
+### Changed
+- Upgraded to SQLAlchemy 2.0 (ML, Tasks).
+
+
+## [v0.4.0] - 2026-07-13
 ### Added
 - Added AuthZ
 - Added tests for API(AuthZ).
@@ -17,14 +26,14 @@ Splited main.py to 3 files:
 
 
 
-## [v0.3.0] - 2026-11-07
+## [v0.3.0] - 2026-07-11
 ### Added
 - Added tests for API, tasks, DB and ML.
 - Added AuthN and sessions.
 - Added login window for frontend.
 
 
-## [v0.2.0] - 2026-10-07
+## [v0.2.0] - 2026-07-10
 ### Added
 - Added uv for dependencies
 
@@ -34,7 +43,7 @@ Splited main.py to 3 files:
 - mypy.ini (Moved to pyproject.toml)
 
 
-## [v0.1.0] - 2026-09-07
+## [v0.1.0] - 2026-07-09
 
 ### Added
 - Added Indexes to DB.
@@ -44,5 +53,5 @@ Splited main.py to 3 files:
 - Added limit, cap and offset to some endpoints.
 
 ### Changed
-- Upgraded to SQLAlchemy 2.0.
+- Upgraded to SQLAlchemy 2.0 (API, DB).
 - Improved Docker images.

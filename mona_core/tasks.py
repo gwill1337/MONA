@@ -3,7 +3,7 @@ import pickle
 from datetime import UTC, datetime, timedelta
 
 import requests
-
+from sqlalchemy import select
 from mona_core.celery_conf import app
 from mona_core.db import Device, Metric, SessionLocal, TrainedModel
 
@@ -28,8 +28,8 @@ def _query(prometheus_url: str, query: str) -> float:
 def _build_features(rows):
     import numpy as np
 
-    # if len(rows) < 5:
-    #     raise ValueError("Need at least 5 points")
+    if len(rows) < 5:
+        raise ValueError("Need at least 5 points")
 
     cpu = np.array([r.cpu for r in rows], dtype=float)
     ram = np.array([r.ram for r in rows], dtype=float)
@@ -55,7 +55,9 @@ def collect_and_save():
                 continue
 
             device_name, device_ip = entry.split(":", 1)
-            existing = db.query(Device).filter(Device.name == device_name).first()
+            existing = db.execute(
+                select(Device).where(Device.name == device_name)
+            ).scalar_one_or_none()
             if not existing:
                 new_dev = Device(name=device_name, ip=device_ip, is_active=True)
                 db.add(new_dev)
@@ -64,7 +66,9 @@ def collect_and_save():
 
         db.commit()
 
-        active_devices = db.query(Device).filter(Device.is_active).all()
+        active_devices = db.execute(
+            select(Device).where(Device.is_active)
+        ).scalars().all()
 
 
         results = []
@@ -86,6 +90,7 @@ def collect_and_save():
         db.commit()
         return results
     except Exception as e:
+        db.rollback()
         print(f"Error collecting metrics: {e}")
         return {"error": str(e)}
     finally:
@@ -100,13 +105,12 @@ def train_model_task(hours: float, note: str):
     db = SessionLocal()
     try:
         since = datetime.now(UTC) - timedelta(hours=hours)
-        rows = (
-            db.query(Metric)
-            .filter(Metric.cpu > 0.1)
-            .filter(Metric.timestamp >= since)
+        rows = db.execute(
+            select(Metric)
+            .where(Metric.cpu > 0.1)
+            .where(Metric.timestamp >= since)
             .order_by(Metric.timestamp)
-            .all()
-        )
+        ).scalars().all()
 
         if len(rows) < 30:
             return {
