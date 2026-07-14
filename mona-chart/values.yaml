@@ -131,40 +131,6 @@ monitoring:
 ingress:
   enabled: false
 
-# kube-prometheus-stack:
-#   alertmanager:
-#     enabled: true
-#     config:
-#       global:
-#         resolve_timeout: 5m
-#       route:
-#         group_by: ['alertname', 'severity']
-#         group_wait: 10s
-#         group_interval: 5m
-#         repeat_interval: 3h
-#         receiver: telegram
-#         routes:
-#           - receiver: "null"
-#             matchers:
-#               - alertname = Watchdog
-#           - receiver: "null"
-#             matchers:
-#               - alertname = InfoInhibitor
-#           - receiver: "null"
-#             matchers:
-#               - alertname = etcdInsufficientMembers
-#           - receiver: "null"
-#             matchers:
-#               - namespace = kube-system
-#       receivers:
-#         - name: "null"
-#         - name: telegram
-#           telegram_configs:
-#             - bot_token:
-#               chat_id:
-#               send_resolved: true
-#               parse_mode: HTML
-
 kube-prometheus-stack:
   alertmanager:
     enabled: true
@@ -172,7 +138,7 @@ kube-prometheus-stack:
       telegram.tmpl: |
         {{ define "telegram.custom.message" }}
         {{ if eq .Status "firing" }} <b>ALERT: {{ .CommonLabels.alertname }}</b>{{ else }} <b>RECOVERED: {{ .CommonLabels.alertname }}</b>{{ end }}
-        
+
         {{ range .Alerts }}
           <b>Device:</b> {{ .Labels.device }}
           <b>Reason:</b> {{ .Annotations.summary }}
