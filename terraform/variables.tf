@@ -9,7 +9,7 @@ variable "telegram_chat_id" {
 }
 
 variable "admin_username" {
-  type    = list(string)
+  type      = list(string)
   sensitive = true
 }
 
@@ -19,11 +19,11 @@ variable "admin_password" {
 }
 
 variable "user_username" {
-  type    = list(string)
+  type      = list(string)
   sensitive = true
 }
 variable "user_password" {
-  type    = list(string)
+  type      = list(string)
   sensitive = true
 }
 
