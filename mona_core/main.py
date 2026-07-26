@@ -20,6 +20,7 @@ from mona_core.security import (
 )
 from mona_core.validators import DeviceCreate
 
+from mona_core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,15 +33,14 @@ app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:30081",
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+# redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+redis_url = settings.redis_url
 celery_client = Celery("mona", broker=redis_url, backend=redis_url)
 
 Instrumentator().instrument(app).expose(app, endpoint="/metrics")

@@ -16,6 +16,17 @@ terraform {
   }
 }
 
+
+# ─── locals ───────────────────────────────────────────────────────────────
+locals {
+  postgres_env = {
+    "POSTGRES_USER"     = var.postgres_user
+    "POSTGRES_PASSWORD" = random_password.postgres_password.result
+    "POSTGRES_DB"       = var.postgres_db
+    "POSTGRES_HOST"     = "postgres"
+    "POSTGRES_PORT"     = "5432"
+  }
+}
 # ─── providers ───────────────────────────────────────────────────────────────
 
 provider "kind" {}
@@ -29,7 +40,7 @@ provider "helm" {
   }
 }
 
-# ─── Resources ──────────────────────────────────────────────────────────────────
+# ─── Resources ───────────────────────────────────────────────────────────────
 
 resource "random_password" "postgres_password" {
   length  = 16
@@ -116,18 +127,36 @@ resource "helm_release" "mona_app" {
     file("${path.module}/../mona-chart/values-prod.yaml"),
   ]
 
+  dynamic "set_sensitive" {
+    for_each = local.postgres_env
+    iterator = env
+    content {
+      name  = "fastapi.env.${env.key}"
+      value = env.value
+    }
+  }
+
+  dynamic "set_sensitive" {
+    for_each = local.postgres_env
+    iterator = env
+    content {
+      name  = "celeryWorker.env.${env.key}"
+      value = env.value
+    }
+  }
+  
   set_sensitive {
     name  = "postgres.auth.password"
     value = random_password.postgres_password.result
   }
-  set_sensitive {
-    name  = "celeryWorker.env.DATABASE_URL"
-    value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
-  }
-  set_sensitive {
-    name  = "fastapi.env.DATABASE_URL"
-    value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
-  }
+  # set_sensitive {
+  #   name  = "celeryWorker.env.DATABASE_URL"
+  #   value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
+  # }
+  # set_sensitive {
+  #   name  = "fastapi.env.DATABASE_URL"
+  #   value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
+  # }
   set_sensitive {
     name  = "fastapi.env.ADMIN_USERNAMES"
     value = replace(join(",", var.admin_username), ",", "\\,")

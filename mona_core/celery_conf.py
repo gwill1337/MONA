@@ -2,9 +2,12 @@ import os
 
 from celery import Celery
 
+from mona_core.config import settings
+
 app = Celery("mona")
 
-redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+# redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+redis_url = settings.redis_url
 
 app = Celery(
     "mona",
@@ -14,7 +17,8 @@ app = Celery(
 )
 
 
-database_url = os.getenv("DATABASE_URL", "postgresql://myuser:1234@postgres:5432/mydb")
+# database_url = os.getenv("DATABASE_URL", "postgresql://myuser:1234@postgres:5432/mydb")
+database_url = settings.postgres_db
 if not database_url.startswith("db+"):
     database_url = f"db+{database_url}"
 

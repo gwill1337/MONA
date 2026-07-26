@@ -10,7 +10,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
-DATABASE = os.getenv("DATABASE_URL", "postgresql://myuser:1234@localhost:5432/mydb")
+from mona_core.config import settings
+
+# DATABASE = os.getenv("DATABASE_URL", "postgresql://myuser:1234@localhost:5432/mydb")
+DATABASE = settings.postgres_db
 
 engine = create_engine(DATABASE)
 SessionLocal = sessionmaker(bind=engine)

@@ -23,10 +23,12 @@ from sqlalchemy import select
 from mona_core.celery_conf import app
 from mona_core.db import Anomaly, Metric, SessionLocal, TrainedModel
 
-WINDOW = 500
-MIN_POINTS = 30
-CONTAMINATION = 0.05
-SCORE_THRESHOLD = -0.05
+from mona_core.config import settings
+
+# WINDOW = 500
+# MIN_POINTS = 30
+# CONTAMINATION = 0.05
+# SCORE_THRESHOLD = -0.05
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -128,13 +130,13 @@ def detect_anomalies():
                     select(Metric)
                     .where(Metric.device == device, Metric.cpu > 0.1)
                     .order_by(Metric.timestamp.desc())
-                    .limit(WINDOW)
+                    .limit(settings.window)
                 )
                 .scalars()
                 .all()
             )
 
-            if len(rows) < MIN_POINTS:
+            if len(rows) < settings.min_points:
                 continue
 
             rows = list(reversed(rows))
@@ -152,7 +154,7 @@ def detect_anomalies():
                 X_scaled = scaler.fit_transform(X_all)  # noqa: N806
                 model = IsolationForest(
                     n_estimators=200,
-                    contamination=CONTAMINATION,
+                    contamination=settings.contamination,
                     random_state=42,
                 )
                 preds = model.fit_predict(X_scaled)
@@ -163,7 +165,7 @@ def detect_anomalies():
                 if mode == "auto" and row.timestamp < cutoff_new.replace(tzinfo=None):
                     continue
 
-                is_anomaly = (preds[i] == -1) and (scores[i] < SCORE_THRESHOLD)
+                is_anomaly = (preds[i] == -1) and (scores[i] < settings.score_threshold)
 
                 if not is_anomaly or row.id in existing_ids:
                     continue

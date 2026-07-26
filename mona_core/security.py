@@ -10,7 +10,10 @@ from sqlalchemy.orm import Session
 
 from mona_core.db import SessionLocal, Users
 
-redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+from mona_core.config import settings
+
+# redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
+redis_url = settings.redis_url
 redis_client = from_url(redis_url, decode_responses=True)
 
 

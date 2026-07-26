@@ -27,6 +27,12 @@ variable "user_password" {
   sensitive = true
 }
 
-# variable "exporters" {
-#   type = string
-# }
+variable "postgres_user" {
+  type    = string
+  default = "myuser"
+}
+
+variable "postgres_db" {
+  type    = string
+  default = "mydb"
+}
