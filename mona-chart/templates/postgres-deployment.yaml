@@ -18,6 +18,24 @@ spec:
       automountServiceAccountToken: {{ .Values.postgres.automountServiceAccountToken }}
       securityContext:
         {{- toYaml .Values.postgres.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: fix-permissions
+          image: busybox:1.36
+          imagePullPolicy: Always
+          securityContext:
+            runAsUser: 0
+            runAsNonRoot: false
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          command: ["sh", "-c", "mkdir -p /var/lib/postgresql/data/pgdata && chown -R 999:999 /var/lib/postgresql/data"]
+          resources:
+            requests: { memory: "16Mi", cpu: "10m" }
+            limits: { memory: "32Mi", cpu: "50m" }
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
       containers:
         - name: postgres
           image: "{{ .Values.images.postgres.repository }}:{{ .Values.images.postgres.tag }}"
@@ -29,11 +47,8 @@ spec:
           env:
             - name: POSTGRES_USER
               value: {{ .Values.postgres.auth.user | quote }}
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_PASSWORD_FILE
+              value: /etc/postgres-secret/POSTGRES_PASSWORD
             - name: POSTGRES_DB
               value: {{ .Values.postgres.auth.db | quote }}
             - name: PGDATA
@@ -41,6 +56,9 @@ spec:
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data
+            - name: postgres-secret
+              mountPath: /etc/postgres-secret
+              readOnly: true
           livenessProbe:
             exec:
               command: ["pg_isready", "-U", "{{ .Values.postgres.auth.user }}"]
@@ -56,6 +74,9 @@ spec:
       volumes:
         - name: pgdata
           emptyDir: {}
+        - name: postgres-secret
+          secret:
+            secretName: postgres-secret
 
 ---
 

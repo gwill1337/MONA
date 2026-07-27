@@ -20,8 +20,16 @@ spec:
       initContainers:
         - name: wait-for-postgres
           image: busybox:1.36
+          imagePullPolicy: Always
           securityContext:
             {{- toYaml .Values.celeryWorker.initContainerSecurityContext | nindent 12 }}
+          resources:
+            requests:
+              memory: "16Mi"
+              cpu: "10m"
+            limits:
+              memory: "32Mi"
+              cpu: "50m"
           command: ['sh', '-c']
           args:
             - |
