@@ -142,9 +142,9 @@ async def login(
     await check_rate_limit(f"user:{body.username}")
 
     stmt = select(Users).where(Users.username == body.username)
-    admin = db.execute(stmt).scalar_one_or_none()
+    user = db.execute(stmt).scalar_one_or_none()
 
-    if not admin or not admin.check_password(body.password):
+    if not user or not user.check_password(body.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     await reset_rate_limit(f"ip:{ip}")
@@ -152,7 +152,7 @@ async def login(
 
     session_id = secrets.token_urlsafe(32)
     session_data = json.dumps(
-        {"id": admin.id, "username": admin.username, "role": admin.role}
+        {"id": user.id, "username": user.username, "role": user.role}
     )
     await redis_client.set(f"session:{session_id}", session_data, ex=43200)
 
@@ -164,7 +164,7 @@ async def login(
         samesite="lax",
         max_age=43200,
     )
-    return {"status": "ok", "message": "Successfully login", "role": admin.role}
+    return {"status": "ok", "message": "Successfully login", "role": user.role}
 
 
 @auth_router.post("/api/auth/logout", tags=["Auth"])

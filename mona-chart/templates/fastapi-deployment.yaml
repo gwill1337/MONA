@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mona-fastapi
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.fastapi.replicas }}
   selector:
@@ -42,6 +43,16 @@ spec:
             - name: {{ $key }}
               value: {{ $val | quote }}
             {{- end }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.auth.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.auth.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.auth.db | quote }}
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: POSTGRES_PORT
+              value: {{ .Values.postgres.service.port | quote }}
       enableServiceLinks: false
       containers:
         - name: fastapi
@@ -52,13 +63,13 @@ spec:
           livenessProbe:
             httpGet:
               path: {{ .Values.fastapi.livenessProbe.httpGet.path }}
-              port: {{ .Values.fastapi.livenessProbe.httpGet.port }}
+              port: {{ .Values.fastapi.service.targetPort }}
             initialDelaySeconds: {{ .Values.fastapi.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.fastapi.livenessProbe.periodSeconds }}
           readinessProbe:
             httpGet:
               path: {{ .Values.fastapi.readinessProbe.httpGet.path }}
-              port: {{ .Values.fastapi.readinessProbe.httpGet.port }}
+              port: {{ .Values.fastapi.service.targetPort }}
             initialDelaySeconds: {{ .Values.fastapi.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.fastapi.readinessProbe.periodSeconds }}
           securityContext:
@@ -70,6 +81,16 @@ spec:
             - name: {{ $key }}
               value: {{ $val | quote }}
             {{- end }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.auth.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.auth.password | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.auth.db | quote }}
+            - name: POSTGRES_HOST
+              value: postgres
+            - name: POSTGRES_PORT
+              value: {{ .Values.postgres.service.port | quote }}
 
 ---
 
@@ -77,6 +98,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fastapi
+  namespace: {{ .Release.Namespace }}
   labels:
     app: fastapi
 spec:

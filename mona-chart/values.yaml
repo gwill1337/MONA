@@ -10,29 +10,35 @@ global:
 
 images:
   fastapi:
-    repository: gwill1337/mona-fastapi
-    tag: latest
-    pullPolicy: Always
+    repository: mona-fastapi
+    tag: local
+    digest: ""
+    pullPolicy: IfNotPresent
   react:
-    repository: gwill1337/mona-react
-    tag: latest
-    pullPolicy: Always
+    repository: mona-react
+    tag: local
+    digest: ""
+    pullPolicy: IfNotPresent
   celery:
-    repository: gwill1337/mona-celery
-    tag: latest
-    pullPolicy: Always
+    repository: mona-celery
+    tag: local
+    digest: ""
+    pullPolicy: IfNotPresent
   postgres:
     repository: postgres
     tag: "16"
-    pullPolicy: IfNotPresent
+    digest: ""
+    pullPolicy: Always
   redis:
     repository: redis
     tag: "7"
-    pullPolicy: IfNotPresent
+    digest: ""
+    pullPolicy: Always
   prometheus:
     repository: prom/prometheus
     tag: latest
-    pullPolicy: IfNotPresent
+    digest: ""
+    pullPolicy: Always
 
 fastapi:
   replicas: 1
@@ -42,43 +48,6 @@ fastapi:
     ADMIN_PASSWORDS: ""
     USER_USERNAMES: ""
     USER_PASSWORDS: ""
-  podSecurityContext:
-    seccompProfile:
-      type: RuntimeDefault
-  containerSecurityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-  initContainerSecurityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
-  service:
-    type: NodePort
-    port: 80
-    targetPort: 80
-    nodePort: 30080
-  livenessProbe:
-    httpGet:
-      path: /health/live
-      port: 80
-    initialDelaySeconds: 5
-    periodSeconds: 10
-  readinessProbe:
-    httpGet:
-      path: /health/ready
-      port: 80
-    initialDelaySeconds: 5
-    periodSeconds: 10
-  resources:
-    requests: { cpu: "100m", memory: "128Mi" }
-    limits: { cpu: "500m", memory: "512Mi" }
-
-react:
-  replicas: 1
-  automountServiceAccountToken: false
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 10001
@@ -92,10 +61,54 @@ react:
     capabilities:
       drop:
         - ALL
+  initContainerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
   service:
     type: NodePort
     port: 80
-    targetPort: 80
+    targetPort: 8080
+    nodePort: 30080
+  livenessProbe:
+    httpGet:
+      path: /health/live
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health/ready
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+
+react:
+  replicas: 1
+  automountServiceAccountToken: false
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    runAsGroup: 101
+    fsGroup: 101
+    seccompProfile:
+      type: RuntimeDefault
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+  service:
+    type: NodePort
+    port: 80
+    targetPort: 8080
     nodePort: 30081
   livenessProbe:
     httpGet:
@@ -111,6 +124,10 @@ celeryWorker:
   replicas: 1
   automountServiceAccountToken: false
   podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
     seccompProfile:
       type: RuntimeDefault
   containerSecurityContext:
@@ -135,6 +152,8 @@ celeryBeat:
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
     seccompProfile:
       type: RuntimeDefault
   containerSecurityContext:
@@ -151,17 +170,20 @@ celeryBeat:
 postgres:
   automountServiceAccountToken: false
   podSecurityContext:
+    runAsUser: 0
+    runAsGroup: 0
+    fsGroup: 0
     seccompProfile:
       type: RuntimeDefault
   containerSecurityContext:
     allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-        - ALL
+    runAsUser: 0
+    runAsGroup: 0
   service:
     port: 5432
   auth:
     user: myuser
+    password: "1234"
     db: mydb
     # Backwards-compatible keys expected by templates
     username: myuser
@@ -196,10 +218,15 @@ prometheus:
   enabled: true
   automountServiceAccountToken: false
   podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    fsGroup: 65534
     seccompProfile:
       type: RuntimeDefault
   containerSecurityContext:
     allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
     capabilities:
       drop:
         - ALL

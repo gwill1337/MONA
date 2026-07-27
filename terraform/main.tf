@@ -13,9 +13,12 @@ terraform {
       source  = "hashicorp/random"
       version = "3.6.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = ">= 3.0.0"
+    }
   }
 }
-
 
 # ─── locals ───────────────────────────────────────────────────────────────
 locals {
@@ -27,6 +30,7 @@ locals {
     "POSTGRES_PORT"     = "5432"
   }
 }
+
 # ─── providers ───────────────────────────────────────────────────────────────
 
 provider "kind" {}
@@ -82,7 +86,22 @@ resource "kind_cluster" "mona_cluster" {
   }
 }
 
+# ─── Uploading images into Kind ────────────────────────────────────────────────
 
+resource "null_resource" "kind_load_images" {
+
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = "kind load docker-image mona-fastapi:local mona-celery:local mona-react:local --name ${kind_cluster.mona_cluster.name}"
+  }
+
+  depends_on = [kind_cluster.mona_cluster]
+}
+
+# ─── Helm Releases ───────────────────────────────────────────────────────────
 
 resource "helm_release" "loki_stack" {
   name             = "loki-stack"
@@ -179,7 +198,11 @@ resource "helm_release" "mona_app" {
     value = var.grafana_admin_password
   }
 
-  depends_on = [helm_release.loki_stack]
+  # Ждем и Loki, И успешную загрузку Docker-образов в Kind!
+  depends_on = [
+    helm_release.loki_stack,
+    null_resource.kind_load_images
+  ]
 }
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────

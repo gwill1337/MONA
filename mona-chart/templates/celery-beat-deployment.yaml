@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: celery-beat
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.celeryBeat.replicas }}
   selector:
@@ -19,6 +20,8 @@ spec:
       initContainers:
         - name: wait-for-postgres
           image: busybox:1.36
+          securityContext:
+            {{- toYaml .Values.celeryBeat.initContainerSecurityContext | nindent 12 }}
           command: ['sh', '-c']
           args:
             - |
@@ -39,6 +42,22 @@ spec:
           imagePullPolicy: {{ .Values.images.celery.pullPolicy }}
           securityContext:
             {{- toYaml .Values.celeryBeat.containerSecurityContext | nindent 12 }}
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test -f /tmp/celerybeat-schedule
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - test -f /tmp/celerybeat-schedule
+            initialDelaySeconds: 10
+            periodSeconds: 20
           volumeMounts:
             - name: tmp
               mountPath: /tmp

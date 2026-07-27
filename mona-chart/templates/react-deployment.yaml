@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mona-react
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.react.replicas }}
   selector:
@@ -20,11 +21,17 @@ spec:
           image: "{{ .Values.images.react.repository }}:{{ .Values.images.react.tag }}"
           imagePullPolicy: {{ .Values.images.react.pullPolicy }}
           ports:
-            - containerPort: 80
+            - containerPort: {{ .Values.react.service.targetPort }}
           livenessProbe:
             httpGet:
               path: {{ .Values.react.livenessProbe.httpGet.path }}
-              port: {{ .Values.react.livenessProbe.httpGet.port }}
+              port: {{ .Values.react.service.targetPort }}
+            initialDelaySeconds: {{ .Values.react.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.react.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.react.livenessProbe.httpGet.path }}
+              port: {{ .Values.react.service.targetPort }}
             initialDelaySeconds: {{ .Values.react.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.react.livenessProbe.periodSeconds }}
 
@@ -33,10 +40,22 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+
+            - name: nginx-run
+              mountPath: /var/run/nginx
           resources:
             {{- toYaml .Values.react.resources | nindent 12 }}
       volumes:
         - name: tmp
+          emptyDir: {}
+
+        - name: nginx-cache
+          emptyDir: {}
+
+        - name: nginx-run
           emptyDir: {}
 
 ---
@@ -45,11 +64,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: {{ .Release.Name }}-react
+  namespace: {{ .Release.Namespace }}
 spec:
   type: {{ .Values.react.service.type }}
   ports:
     - port: {{ .Values.react.service.port }}
-      targetPort: 80
+      targetPort: {{ .Values.react.service.targetPort }}
       {{- if eq .Values.react.service.type "NodePort" }}
       nodePort: {{ .Values.react.service.nodePort }}
       {{- end }}

@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis-deployment
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
@@ -21,7 +22,9 @@ spec:
           image: "{{ .Values.images.redis.repository }}:{{ .Values.images.redis.tag }}"
           imagePullPolicy: {{ .Values.images.redis.pullPolicy }}
           securityContext:
-            {{- toYaml .Values.redis.containerSecurityContext | nindent 12 }}
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           command: ["redis-server", "--appendonly", "yes"]
           volumeMounts:
             - name: redis-data
@@ -39,6 +42,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
     - port: {{ .Values.redis.service.port }}
