@@ -14,10 +14,15 @@ spec:
       labels:
         app: postgres-pod
     spec:
+      automountServiceAccountToken: {{ .Values.postgres.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.postgres.podSecurityContext | nindent 8 }}
       containers:
         - name: postgres
           image: "{{ .Values.images.postgres.repository }}:{{ .Values.images.postgres.tag }}"
           imagePullPolicy: {{ .Values.images.postgres.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.postgres.containerSecurityContext | nindent 12 }}
           ports:
             - containerPort: {{ .Values.postgres.service.port }}
           env:

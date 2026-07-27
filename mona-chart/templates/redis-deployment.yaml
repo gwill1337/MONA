@@ -13,10 +13,15 @@ spec:
       labels:
         app: redis-pod
     spec:
+      automountServiceAccountToken: {{ .Values.redis.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.redis.podSecurityContext | nindent 8 }}
       containers:
         - name: redis
           image: "{{ .Values.images.redis.repository }}:{{ .Values.images.redis.tag }}"
           imagePullPolicy: {{ .Values.images.redis.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.redis.containerSecurityContext | nindent 12 }}
           command: ["redis-server", "--appendonly", "yes"]
           volumeMounts:
             - name: redis-data

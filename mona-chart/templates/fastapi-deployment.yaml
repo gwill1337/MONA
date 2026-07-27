@@ -17,6 +17,9 @@ spec:
         prometheus.io/path: "/metrics"
         prometheus.io/port: "{{ .Values.fastapi.service.targetPort }}"
     spec:
+      automountServiceAccountToken: {{ .Values.fastapi.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.fastapi.podSecurityContext | nindent 8 }}
       initContainers:
         - name: wait-for-postgres
           image: busybox:1.36
@@ -31,6 +34,8 @@ spec:
         - name: alembic-upgrade
           image: "{{ .Values.images.fastapi.repository }}:{{ .Values.images.fastapi.tag }}"
           imagePullPolicy: {{ .Values.images.fastapi.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.fastapi.initContainerSecurityContext | nindent 12 }}
           command: ["alembic", "upgrade", "head"]
           env:
             {{- range $key, $val := .Values.fastapi.env }}
@@ -56,6 +61,8 @@ spec:
               port: {{ .Values.fastapi.readinessProbe.httpGet.port }}
             initialDelaySeconds: {{ .Values.fastapi.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.fastapi.readinessProbe.periodSeconds }}
+          securityContext:
+            {{- toYaml .Values.fastapi.containerSecurityContext | nindent 12 }}
           resources:
             {{- toYaml .Values.fastapi.resources | nindent 12 }}
           env:

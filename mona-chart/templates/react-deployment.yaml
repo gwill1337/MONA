@@ -12,14 +12,32 @@ spec:
       labels:
         app: {{ .Release.Name }}-react
     spec:
+      automountServiceAccountToken: {{ .Values.react.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.react.podSecurityContext | nindent 8 }}
       containers:
         - name: react
           image: "{{ .Values.images.react.repository }}:{{ .Values.images.react.tag }}"
           imagePullPolicy: {{ .Values.images.react.pullPolicy }}
           ports:
             - containerPort: 80
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.react.livenessProbe.httpGet.path }}
+              port: {{ .Values.react.livenessProbe.httpGet.port }}
+            initialDelaySeconds: {{ .Values.react.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.react.livenessProbe.periodSeconds }}
+
+          securityContext:
+            {{- toYaml .Values.react.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             {{- toYaml .Values.react.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
 
 ---
 

@@ -36,11 +36,25 @@ images:
 
 fastapi:
   replicas: 1
+  automountServiceAccountToken: false
   env:
     ADMIN_USERNAMES: ""
     ADMIN_PASSWORDS: ""
     USER_USERNAMES: ""
     USER_PASSWORDS: ""
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+  initContainerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   service:
     type: NodePort
     port: 80
@@ -64,6 +78,20 @@ fastapi:
 
 react:
   replicas: 1
+  automountServiceAccountToken: false
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
   service:
     type: NodePort
     port: 80
@@ -81,6 +109,16 @@ react:
 
 celeryWorker:
   replicas: 1
+  automountServiceAccountToken: false
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
   command: ["celery", "-A", "celery_conf.app", "worker", "--loglevel=info"]
   livenessProbe:
     exec:
@@ -93,12 +131,33 @@ celeryWorker:
 
 celeryBeat:
   replicas: 1
-  command: ["celery", "-A", "celery_conf.app", "beat", "--loglevel=info"]
+  automountServiceAccountToken: false
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  command: ["celery", "-A", "celery_conf.app", "beat", "--loglevel=info", "-s", "/tmp/celerybeat-schedule"]
   resources:
     requests: { cpu: "100m", memory: "128Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
 
 postgres:
+  automountServiceAccountToken: false
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   service:
     port: 5432
   auth:
@@ -115,6 +174,15 @@ postgres:
     limits: { cpu: "500m", memory: "512Mi" }
 
 redis:
+  automountServiceAccountToken: false
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   service:
     port: 6379
   persistence:
@@ -126,6 +194,15 @@ redis:
 
 prometheus:
   enabled: true
+  automountServiceAccountToken: false
+  podSecurityContext:
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
   replicas: 1
   service:
     type: NodePort

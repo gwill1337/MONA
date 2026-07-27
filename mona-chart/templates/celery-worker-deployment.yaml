@@ -13,6 +13,9 @@ spec:
       labels:
         app: celery-worker
     spec:
+      automountServiceAccountToken: {{ .Values.celeryWorker.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.celeryWorker.podSecurityContext | nindent 8 }}
       initContainers:
         - name: wait-for-postgres
           image: busybox:1.36
@@ -29,6 +32,24 @@ spec:
         - name: worker
           image: "{{ .Values.images.celery.repository }}:{{ .Values.images.celery.tag }}"
           imagePullPolicy: {{ .Values.images.celery.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.celeryWorker.containerSecurityContext | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            exec:
+              command:
+                - celery
+                - -A
+                - my_app
+                - inspect
+                - ping
+                - -d
+                - celery@${HOSTNAME}
+            initialDelaySeconds: {{ .Values.celeryWorker.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.celeryWorker.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.celeryWorker.livenessProbe.timeoutSeconds }}
           command:
             {{- toYaml .Values.celeryWorker.command | nindent 12 }}
           env:
@@ -50,3 +71,6 @@ spec:
               value: "http://prometheus-main-metrics.{{ .Release.Namespace }}.svc:9090"
           resources:
             {{- toYaml .Values.celeryWorker.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
