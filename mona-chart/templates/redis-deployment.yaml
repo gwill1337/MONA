@@ -15,6 +15,7 @@ spec:
         app: redis-pod
     spec:
       automountServiceAccountToken: {{ .Values.redis.automountServiceAccountToken }}
+      readOnlyRootFilesystem: true
       securityContext:
         {{- toYaml .Values.redis.podSecurityContext | nindent 8 }}
       containers:

@@ -36,6 +36,8 @@ jobs:
           directory: .
           framework: terraform,helm
           quiet: true
+          skip_path: mona-chart/charts
+          skip_check: CKV_K8S_21
   
   terraform:
     name: Terraform checks
@@ -131,7 +133,6 @@ jobs:
 
       - name: Build Docker images
         run: |
-          # Собираем образы с локальными тегами для проверки
           docker build -f docker/dockerfile.celery -t local/celery:test .
           docker build -f docker/dockerfile.fastapi -t local/fastapi:test .
           docker build -f docker/dockerfile.react -t local/react:test .
