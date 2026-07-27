@@ -144,7 +144,7 @@ resource "helm_release" "mona_app" {
       value = env.value
     }
   }
-  
+
   set_sensitive {
     name  = "postgres.auth.password"
     value = random_password.postgres_password.result

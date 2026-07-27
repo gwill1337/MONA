@@ -1,4 +1,3 @@
-
 from celery import Celery
 
 from mona_core.config import settings

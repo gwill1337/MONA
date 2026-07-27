@@ -79,8 +79,13 @@ def seed_admin():
             db.rollback()
             print(f"Error: {e}")
 
+
 # limiter
-async def check_rate_limit(key: str, max_attempts: int = settings.max_attempts, window: int = settings.lockout_seconds):
+async def check_rate_limit(
+    key: str,
+    max_attempts: int = settings.max_attempts,
+    window: int = settings.lockout_seconds,
+):
     attempts_key = f"login_attempts:{key}"
     attempts = await redis_client.incr(attempts_key)
     if attempts == 1:
@@ -93,8 +98,10 @@ async def check_rate_limit(key: str, max_attempts: int = settings.max_attempts, 
             detail=f"Too many attempts. Try again in {ttl} seconds",
         )
 
+
 async def reset_rate_limit(key: str):
     await redis_client.delete(f"login_attempts:{key}")
+
 
 # ─── Auth ────────────────────────────────────────────────────────────────
 async def get_current_user(user_session: str | None = Cookie(None)) -> dict:
@@ -123,7 +130,12 @@ auth_router = APIRouter(tags=["Auth"])
 
 # ─── login & logout ─────────────────────────────────────────────────────────
 @auth_router.post("/api/auth/login", tags=["Auth"])
-async def login(body: LoginRequest,request: Request, response: Response, db: Session = Depends(get_db)):
+async def login(
+    body: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     ip = request.client.host if request.client else "127.0.0.1"
 
     await check_rate_limit(f"ip:{ip}")
