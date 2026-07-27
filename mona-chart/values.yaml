@@ -139,9 +139,18 @@ celeryWorker:
   command: ["celery", "-A", "celery_conf.app", "worker", "--loglevel=info"]
   livenessProbe:
     exec:
-      command: ["celery", "-A", "celery_conf.app", "inspect", "ping"]
-    initialDelaySeconds: 30
+      command: ["/bin/sh", "-c", "celery -A celery_conf.app inspect ping -d celery@$HOSTNAME --timeout 10"]
+    initialDelaySeconds: 40
     periodSeconds: 60
+    timeoutSeconds: 15
+    failureThreshold: 3
+  readinessProbe:
+    exec:
+      command: ["/bin/sh", "-c", "celery -A celery_conf.app inspect ping -d celery@$HOSTNAME --timeout 10"]
+    initialDelaySeconds: 20
+    periodSeconds: 30
+    timeoutSeconds: 15
+    failureThreshold: 3
   resources:
     requests: { cpu: "100m", memory: "128Mi" }
     limits: { cpu: "500m", memory: "512Mi" }

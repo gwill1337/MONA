@@ -4,6 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus-main-metrics
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.prometheus.replicas }}
   selector:
@@ -35,6 +36,14 @@ spec:
               mountPath: /etc/prometheus
             - name: data
               mountPath: /prometheus
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: {{ .Values.prometheus.service.targetPort }}
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: {{ .Values.prometheus.service.targetPort }}
           resources:
             {{- toYaml .Values.prometheus.resources | nindent 12 }}
       volumes:

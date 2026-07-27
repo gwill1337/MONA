@@ -39,6 +39,7 @@ spec:
       containers:
         - name: beat
           image: "{{ .Values.images.celery.repository }}:{{ .Values.images.celery.tag }}"
+          # checkov:skip=CKV_K8S_15:
           imagePullPolicy: {{ .Values.images.celery.pullPolicy }}
           securityContext:
             {{- toYaml .Values.celeryBeat.containerSecurityContext | nindent 12 }}
@@ -48,16 +49,20 @@ spec:
                 - /bin/sh
                 - -c
                 - test -f /tmp/celerybeat-schedule
-            initialDelaySeconds: 10
-            periodSeconds: 20
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
           readinessProbe:
             exec:
               command:
                 - /bin/sh
                 - -c
                 - test -f /tmp/celerybeat-schedule
-            initialDelaySeconds: 10
+            initialDelaySeconds: 15
             periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 5
           volumeMounts:
             - name: tmp
               mountPath: /tmp

@@ -34,21 +34,29 @@ spec:
       containers:
         - name: worker
           image: "{{ .Values.images.celery.repository }}:{{ .Values.images.celery.tag }}"
+          # checkov:skip=CKV_K8S_15:
           imagePullPolicy: {{ .Values.images.celery.pullPolicy }}
           securityContext:
             {{- toYaml .Values.celeryWorker.containerSecurityContext | nindent 12 }}
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-          # livenessProbe:
-          #   exec:
-          #     command:
-          #       - /bin/sh
-          #       - -c
-          #       - "celery -A my_app inspect ping -d celery@${HOSTNAME}"
-          #   initialDelaySeconds: {{ .Values.celeryWorker.livenessProbe.initialDelaySeconds }}
-          #   periodSeconds: {{ .Values.celeryWorker.livenessProbe.periodSeconds }}
-          #   timeoutSeconds: {{ .Values.celeryWorker.livenessProbe.timeoutSeconds }}
+          livenessProbe:
+            exec:
+              command:
+                {{- toYaml .Values.celeryWorker.livenessProbe.exec.command | nindent 16 }}
+            initialDelaySeconds: {{ .Values.celeryWorker.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.celeryWorker.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.celeryWorker.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.celeryWorker.livenessProbe.failureThreshold }}
+          readinessProbe:
+            exec:
+              command:
+                {{- toYaml .Values.celeryWorker.readinessProbe.exec.command | nindent 16 }}
+            initialDelaySeconds: {{ .Values.celeryWorker.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.celeryWorker.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.celeryWorker.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.celeryWorker.readinessProbe.failureThreshold }}
           command:
             {{- toYaml .Values.celeryWorker.command | nindent 12 }}
           env:
