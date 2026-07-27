@@ -37,10 +37,10 @@ images:
 fastapi:
   replicas: 1
   env:
-    ADMIN_USERNAMES: "admin"
-    ADMIN_PASSWORDS: "admin123"
-    USER_USERNAMES: "user1"
-    USER_PASSWORDS: "userpass1"
+    ADMIN_USERNAMES: ""
+    ADMIN_PASSWORDS: ""
+    USER_USERNAMES: ""
+    USER_PASSWORDS: ""
   service:
     type: NodePort
     port: 80
@@ -69,6 +69,12 @@ react:
     port: 80
     targetPort: 80
     nodePort: 30081
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 5
+    periodSeconds: 10
   resources:
     requests: { cpu: "100m", memory: "128Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
@@ -76,6 +82,11 @@ react:
 celeryWorker:
   replicas: 1
   command: ["celery", "-A", "celery_conf.app", "worker", "--loglevel=info"]
+  livenessProbe:
+    exec:
+      command: ["celery", "-A", "celery_conf.app", "inspect", "ping"]
+    initialDelaySeconds: 30
+    periodSeconds: 60
   resources:
     requests: { cpu: "100m", memory: "128Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
@@ -169,8 +180,8 @@ kube-prometheus-stack:
         - name: "null"
         - name: telegram
           telegram_configs:
-            - bot_token:
-              chat_id:
+            - bot_token: ""
+              chat_id: ""
               send_resolved: true
               parse_mode: HTML
               message: '{{ template "telegram.custom.message" . }}'
@@ -180,7 +191,6 @@ kube-prometheus-stack:
     service:
       type: NodePort
       nodePort: 30300
-    adminPassword: "admin123"
     sidecar:
       dashboards:
         enabled: true

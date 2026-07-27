@@ -149,14 +149,6 @@ resource "helm_release" "mona_app" {
     name  = "postgres.auth.password"
     value = random_password.postgres_password.result
   }
-  # set_sensitive {
-  #   name  = "celeryWorker.env.DATABASE_URL"
-  #   value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
-  # }
-  # set_sensitive {
-  #   name  = "fastapi.env.DATABASE_URL"
-  #   value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
-  # }
   set_sensitive {
     name  = "fastapi.env.ADMIN_USERNAMES"
     value = replace(join(",", var.admin_username), ",", "\\,")
@@ -181,6 +173,10 @@ resource "helm_release" "mona_app" {
   set_sensitive {
     name  = "kube-prometheus-stack.alertmanager.config.receivers[1].telegram_configs[0].chat_id"
     value = var.telegram_chat_id
+  }
+  set_sensitive {
+    name  = "kube-prometheus-stack.grafana.adminPassword"
+    value = var.grafana_admin_password
   }
 
   depends_on = [helm_release.loki_stack]

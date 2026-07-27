@@ -136,7 +136,7 @@ jobs:
   docker:
     name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    needs: [terraform, helm, yaml_lint, python]
+    needs: [terraform, helm, yaml_lint, python, security_iac]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
