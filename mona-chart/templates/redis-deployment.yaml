@@ -15,7 +15,7 @@ spec:
         app: redis-pod
     spec:
       automountServiceAccountToken: {{ .Values.redis.automountServiceAccountToken }}
-      readOnlyRootFilesystem: true
+      readOnlyRootFilesystem: {{ .Values.redis.containerSecurityContext.readOnlyRootFilesystem }}
       securityContext:
         {{- toYaml .Values.redis.podSecurityContext | nindent 8 }}
       containers:
@@ -44,8 +44,9 @@ spec:
             {{- toYaml .Values.redis.resources | nindent 12 }}
       volumes:
         - name: redis-data
-          hostPath:
-            path: {{ .Values.redis.persistence.hostPath }}
+          emptyDir: {}
+          # hostPath:
+          #   path: {{ .Values.redis.persistence.hostPath }}
 
 ---
 
