@@ -12,18 +12,18 @@ Features (6 items):
   cpu_d5, ram_d5          — change over 5 points (~25 sec)
 """
 
-import pickle
+# import pickle
 from datetime import UTC, datetime, timedelta
 
 import numpy as np
+import skops.io as sio
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 from sqlalchemy import select
 
 from mona_core.celery_conf import app
-from mona_core.db import Anomaly, Metric, SessionLocal, TrainedModel
-
 from mona_core.config import settings
+from mona_core.db import Anomaly, Metric, SessionLocal, TrainedModel
 
 # WINDOW = 500
 # MIN_POINTS = 30
@@ -99,7 +99,9 @@ def _load_user_model(db):
     )
     if record is None:
         return None, None
-    model, scaler = pickle.loads(record.model_data)
+    untrusted_types = sio.get_untrusted_types(data=record.model_data)
+    model, scaler = sio.loads(record.model_data, trusted=untrusted_types)
+    # model, scaler = sio.loads(record.model_data, trusted=True) # type: ignore
     return model, scaler
 
 

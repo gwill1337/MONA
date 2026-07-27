@@ -1,9 +1,14 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     #api
     cors_origins: list[str] = ["http://localhost:30081"]
+
+    #Security
+    max_attempts: int = 5
+    lockout_seconds: int = 300
 
     #ML
     window: int = 500
@@ -14,6 +19,8 @@ class Settings(BaseSettings):
     #DB
     redis_url: str = "redis://redis:6379"
 
+    database_url: str | None = None
+
     postgres_user: str = "myuser"
     postgres_password: str = ""
     postgres_db: str = "mydb"
@@ -23,6 +30,8 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def postgres_url(self) -> str:
+        if self.database_url:
+            return self.database_url
         return (
             f"postgresql://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"

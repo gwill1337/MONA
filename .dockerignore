@@ -23,9 +23,17 @@ CHANGELOG.md
 LICENSE
 
 terraform.tfstate*
+terraform.tfvars
+terraform.lock*
 
 mona_chart/
 yaml/
 scripts/
 tests/
 conftest.py
+
+**/terraform.tfstate*
+**/terraform.tfvars
+**/terraform.tfvars*
+**/*.tfvars
+**/.env

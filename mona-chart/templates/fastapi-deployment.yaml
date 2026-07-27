@@ -33,9 +33,11 @@ spec:
           imagePullPolicy: {{ .Values.images.fastapi.pullPolicy }}
           command: ["alembic", "upgrade", "head"]
           env:
-            - name: DATABASE_URL
-              value: {{ .Values.fastapi.env.DATABASE_URL | quote }}
-
+            {{- range $key, $val := .Values.fastapi.env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+      enableServiceLinks: false
       containers:
         - name: fastapi
           image: "{{ .Values.images.fastapi.repository }}:{{ .Values.images.fastapi.tag }}"
@@ -57,18 +59,10 @@ spec:
           resources:
             {{- toYaml .Values.fastapi.resources | nindent 12 }}
           env:
-            - name: DATABASE_URL
-              value: {{ .Values.fastapi.env.DATABASE_URL | quote }}
-            - name: REDIS_URL
-              value: {{ include "mona.redisUrl" . | quote }}
-            - name: ADMIN_USERNAMES
-              value: {{ .Values.fastapi.env.ADMIN_USERNAMES | quote }}
-            - name: ADMIN_PASSWORDS
-              value: {{ .Values.fastapi.env.ADMIN_PASSWORDS | quote }}
-            - name: USER_USERNAMES
-              value: {{ .Values.fastapi.env.USER_USERNAMES | quote }}
-            - name: USER_PASSWORDS
-              value: {{ .Values.fastapi.env.USER_PASSWORDS | quote }}
+            {{- range $key, $val := .Values.fastapi.env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
 
 ---
 

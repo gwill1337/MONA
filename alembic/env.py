@@ -10,6 +10,8 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__))) 
 from mona_core.db import Base
 
+from mona_core.config import settings
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -25,7 +27,8 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 target_metadata = Base.metadata
 
-database_url = os.getenv("DATABASE_URL", "postgresql://myuser:1234@localhost:5432/mydb")
+# database_url = os.getenv("DATABASE_URL", "postgresql://myuser:1234@localhost:5432/mydb")
+database_url = settings.postgres_url
 config.set_main_option("sqlalchemy.url", database_url)
 
 # other values from the config, defined by the needs of env.py,
