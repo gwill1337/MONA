@@ -19,12 +19,13 @@ class Settings(BaseSettings):
     # DB
     redis_url: str = "redis://redis:6379"
 
+    #DON'T TOUCH!!!!
     database_url: str | None = None
 
-    postgres_user: str = "myuser"
+    postgres_user: str = ""
     postgres_password: str = ""
-    postgres_db: str = "mydb"
-    postgres_host: str = "postgres"
+    postgres_db: str = ""
+    postgres_host: str = ""
     postgres_port: int = 5432
 
     @computed_field  # type: ignore[prop-decorator]

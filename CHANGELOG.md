@@ -1,7 +1,7 @@
 # CHANGELOG
 
 All notable changes to this project will be documented in this file.
-## [v0.6.0] - 2026-07-27 - Security update
+## [v0.6.0] - 2026-07-28 - Security update
 ### Added
 - Added limiter for login
 - Added config for .env
@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - Fixed a critical bug where sensitive values from `terraform.tfvars`
   were leaking into Docker image layers pushed to a registry.
   Affected credentials have been rotated.
+- Enhanced security for IaC and docker images.
 
 ## [v0.5.0] - 2026-07-14
 ### Added

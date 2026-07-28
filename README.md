@@ -6,20 +6,18 @@ MONA is a K8s-based monitoring and analytics tool managed with Terraform and Hel
 
 ## Quick Start:
 1. Ensure [**Docker Desktop**](https://www.docker.com/products/docker-desktop/), [**kind**](https://github.com/kubernetes-sigs/kind), [**helm**](https://helm.sh/) and [**Terraform**](https://developer.hashicorp.com/terraform/install) are installed.
-2. Set up node-exporter on the device you want to monitor.
+2. Set up node-exporter on the device you want to monitor with port 9100.
 3. Clone repo `git clone https://github.com/gwill1337/MONA.git`
-4. Configure the necessary values in "mona-chart/[values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml)" and "mona-chart/[values-prod](https://github.com/gwill1337/MONA/blob/main/mona-chart/values-prod.yaml)". *such as PC's IP & name or just add them via **Admin panel***
-5. Create `terraform.tfvars` in terraform folder and paste variables or paste them directly after `terraform apply`:
-```tfvars
-telegram_bot_token = "your_bot_token"
-telegram_chat_id   = your_id
-admin_username     = "your_username"
-admin_password     = "your_password"
+4. Configure the necessary values in "mona-chart/[values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml)"[ReadmeForValues](). *such as PC's IP & name or just add them via **Admin panel***
+5. Configure `config.py` for ML and FastAPI limiter settings.
+6. Create `terraform.tfvars` in terraform folder from `terraform.tfvars.example`.
+7. Deploy: Run the automated script:
+```Powershell
+.\deploy.ps1 -all # or .\deploy.ps1 -deploy
 ```
-6. Deploy: Run the automated script *requires [**kubeconform**](https://github.com/yannh/kubeconform#Installation)*:
-```bash
-   # From the /scripts folder
-   ./setup_bash.sh # or setup_ps.ps1
+Or via makefile:
+```makefile
+make all
 ```
 *For manual deployment, use terraform init && terraform apply inside the /terraform folder.*
 
@@ -63,11 +61,12 @@ admin_password     = "your_password"
 
 ## About cluster & pods
 The infrastructure is managed using Terraform and Helm. The Kubernetes cluster consists of a control-plane node running the following core workloads.    
-Helm templates for flexible and fast setup can be configured in [values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml), and [values-prod](https://github.com/gwill1337/MONA/blob/main/mona-chart/values-prod.yaml).
+Helm templates for flexible and fast setup can be configured in [values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml).
 
 * **API Engine:** FastAPI endpoints for handling client requests.   
 * **Task Queue:** Celery workers with a Redis broker for background metrics collection and ML tasks.   
-* **Database:** PostgreSQL for storing metrics and analytics data.   
+* **PostgreSQL:** For storing metrics and analytics data.  
+* **Redis:** As broker for celery and as storage for sessions and limiter. 
 * **Monitoring Stack:** **Prometheus** for data scraping, **Grafana** for visualization (Recharts is also used in the web UI), Alertmanager for pod alert notifications, and **Loki** with **Promtail** for pod logs.   
 
 ![dashboard](https://github.com/gwill1337/Images/blob/main/MONA/dashboard.gif)
@@ -80,7 +79,6 @@ Helm templates for flexible and fast setup can be configured in [values](https:/
 1. **Auto:** Takes between 50 and 500 of the most recent data points and trains the model on the fly. The model is not stored in the database and retrains before each detection (every 60 seconds by default).
 2. **Manual:** Uses a time range specified by the user. The trained model is stored in the database.
 
-
 ## PostgreSQL
 Postgres runs as a `StatefulSet`, which provides stable pod identifiers, persistent storage linked to specific pods, and ordered deployment for stateful applications.   
 For detailed information about the tables, see [db.py](https://github.com/gwill1337/MONA/blob/main/mona_core/db.py).
@@ -90,7 +88,7 @@ For detailed information about the tables, see [db.py](https://github.com/gwill1
 * **metrics:** stores collected metrics from the monitored device.
 * **anomalies:** stores detected anomalies.
 * **trained_models:** stores trained models.
-* **admin_users:** stores admin users.
+* **users:** stores users.
 
 and can be opened via psql:
 ```bash
@@ -115,11 +113,13 @@ P.S. Endpoints like `/health/live`, `/health/ready`, and Prometheus target metri
 ## CI
 Automated checks and docker build & push run on every push and pull request:
 
+* **Gitleaks:** — leaks scan
+* **Checkov:** — IaC scan
 * **Terraform** — format and validation checks
-* **Helm** — lint and Kubernetes schema validation via kubeconform
+* **Helm** — lint for helm charts
 * **YAML** — lint for values and chart files
 * **Python** — ruff (lint and format checks), MyPy (type checks), Pytest (Api tests)
-* **Docker** - Docker build & Docker push using repo secrets
+* **Docker** - scan images via Trivy
 
 ## Architecture
 Here more about architecture and how mona works.

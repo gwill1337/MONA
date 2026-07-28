@@ -203,12 +203,9 @@ postgres:
   service:
     port: 5432
   auth:
-    user: myuser
-    password: "1234"
-    db: mydb
-    # Backwards-compatible keys expected by templates
-    username: myuser
-    database: mydb
+    user: ""
+    password: ""
+    db: ""
   persistence:
     enabled: true
     size: 1Gi

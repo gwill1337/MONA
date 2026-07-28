@@ -37,3 +37,16 @@ conftest.py
 **/terraform.tfvars*
 **/*.tfvars
 **/.env
+
+deploy.ps1
+Makefile
+
+celerybeat-schedule
+terraform.tfstate.backup
+terraform.tfstate
+tfplan
+
+kube_prom_matches.txt
+kube_prom_values.txt
+loki_stack_matches.txt
+loki_stack_values.txt

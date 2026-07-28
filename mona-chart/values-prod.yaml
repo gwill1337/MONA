@@ -1,6 +1,0 @@
----
-postgres:
-  auth:
-    user: myuser
-    password: "1234"
-    db: mydb

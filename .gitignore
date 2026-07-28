@@ -21,6 +21,11 @@ terraform.tfstate.backup
 terraform.tfstate
 tfplan
 
+kube_prom_matches.txt
+kube_prom_values.txt
+loki_stack_matches.txt
+loki_stack_values.txt
+
 
 kube_prom_matches.txt
 kube_prom_values.txt
@@ -34,9 +39,6 @@ __pycache__/
 .env
 venv/
 .venv/
-
-# Docker
-# .dockerignore
 
 # OS
 .DS_Store

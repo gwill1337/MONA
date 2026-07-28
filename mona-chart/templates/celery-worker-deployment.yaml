@@ -68,10 +68,11 @@ spec:
           command:
             {{- toYaml .Values.celeryWorker.command | nindent 12 }}
           env:
+          
             - name: REDIS_URL
               value: {{ include "mona.redisUrl" . | quote }}
             - name: POSTGRES_USER
-              value: {{ .Values.postgres.auth.username | quote }}
+              value: {{ .Values.postgres.auth.user | quote }}
             - name: POSTGRES_PASSWORD
               value: {{ .Values.postgres.auth.password | quote }}
             - name: POSTGRES_HOST
@@ -79,7 +80,7 @@ spec:
             - name: POSTGRES_PORT
               value: {{ .Values.postgres.service.port | quote }}
             - name: POSTGRES_DB
-              value: {{ .Values.postgres.auth.database | quote }}
+              value: {{ .Values.postgres.auth.db | quote }}
             - name: EXPORTERS
               value: "{{ range $i, $e := .Values.global.externalPcExporters }}{{ if $i }},{{ end }}{{ $e.jobName }}:{{ $e.host }}{{ end }}"
             - name: PROMETHEUS_URL

@@ -11,6 +11,7 @@ user_password          = ["userpass1"]
 
 postgres_user          = "myuser"
 postgres_db            = "mydb"
+postgres_port          = 5432
 
 # Passowrd for grafana
 grafana_admin_password = "admin123"
