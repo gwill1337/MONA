@@ -8,6 +8,9 @@ All notable changes to this project will be documented in this file.
 - Added security checks into CI pipeline
 - Added tests for limiter
 
+### Changed
+- Changed docker images from docker hub to local
+
 ### Security
 - Fixed a critical bug where sensitive values from `terraform.tfvars`
   were leaking into Docker image layers pushed to a registry.
