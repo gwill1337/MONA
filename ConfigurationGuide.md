@@ -1,7 +1,7 @@
 # Configuration guide
 
 ## Basic values for configuration in values.yaml
-### PCs. for adding list of devices
+### PCs — Device List (or add via frontend/admin panel)
 ```yaml
 externalPcExporters:
     # - host: "10.0.0.8"
