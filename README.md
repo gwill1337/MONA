@@ -8,7 +8,7 @@ MONA is a K8s-based monitoring and analytics tool managed with Terraform and Hel
 1. Ensure [**Docker Desktop**](https://www.docker.com/products/docker-desktop/), [**kind**](https://github.com/kubernetes-sigs/kind), [**helm**](https://helm.sh/) and [**Terraform**](https://developer.hashicorp.com/terraform/install) are installed.
 2. Set up node-exporter on the device you want to monitor with port 9100.
 3. Clone repo `git clone https://github.com/gwill1337/MONA.git`
-4. Configure the necessary values in "mona-chart/[values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml)"[ConfigurationGuide](https://github.com/gwill1337/MONA/blob/dev/ConfigurationGuide.md). *such as PC's IP & name or just add them via **Admin panel***
+4. Configure the necessary values in "mona-chart/[values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml)" [[ConfigurationGuide]](https://github.com/gwill1337/MONA/blob/dev/ConfigurationGuide.md). *such as PC's IP & name or just add them via **Admin panel***
 5. Configure `config.py` for ML and FastAPI limiter settings.
 6. Create `terraform.tfvars` in terraform folder from `terraform.tfvars.example`.
 7. Deploy: Run the automated script:
@@ -119,7 +119,7 @@ Automated checks and docker build & push run on every push and pull request:
 * **Helm** — lint for helm charts
 * **YAML** — lint for values and chart files
 * **Python** — ruff (lint and format checks), MyPy (type checks), Pytest (Api tests)
-* **Docker** - scan images via Trivy
+* **Docker** — scan images via Trivy
 
 ## Architecture
 Here more about architecture and how mona works.
