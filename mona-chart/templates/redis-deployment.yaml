@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: redis-deployment
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: 1
   selector:
@@ -13,20 +14,39 @@ spec:
       labels:
         app: redis-pod
     spec:
+      automountServiceAccountToken: {{ .Values.redis.automountServiceAccountToken }}
+      readOnlyRootFilesystem: {{ .Values.redis.containerSecurityContext.readOnlyRootFilesystem }}
+      securityContext:
+        {{- toYaml .Values.redis.podSecurityContext | nindent 8 }}
       containers:
         - name: redis
           image: "{{ .Values.images.redis.repository }}:{{ .Values.images.redis.tag }}"
           imagePullPolicy: {{ .Values.images.redis.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           command: ["redis-server", "--appendonly", "yes"]
           volumeMounts:
             - name: redis-data
               mountPath: /data
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
             {{- toYaml .Values.redis.resources | nindent 12 }}
       volumes:
         - name: redis-data
-          hostPath:
-            path: {{ .Values.redis.persistence.hostPath }}
+          emptyDir: {}
+          # hostPath:
+          #   path: {{ .Values.redis.persistence.hostPath }}
 
 ---
 
@@ -34,6 +54,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: redis
+  namespace: {{ .Release.Namespace }}
 spec:
   ports:
     - port: {{ .Values.redis.service.port }}

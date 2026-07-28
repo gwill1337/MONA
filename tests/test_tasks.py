@@ -243,7 +243,7 @@ class TestTrainModel:
 
         assert model.note is None
 
-    def test_pickle_failure(
+    def test_load_failure(
         self,
         monkeypatch,
         db_session,
@@ -252,9 +252,9 @@ class TestTrainModel:
         db_session.commit()
 
         monkeypatch.setattr(
-            tasks.pickle,
+            tasks.sio,
             "dumps",
-            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("pickle error")),
+            lambda *a, **k: (_ for _ in ()).throw(RuntimeError("skops error")),
         )
 
         result = tasks.train_model_task(
@@ -263,4 +263,4 @@ class TestTrainModel:
         )
 
         assert result["status"] == "error"
-        assert "pickle error" in result["message"]
+        assert "skops error" in result["message"]

@@ -7,3 +7,5 @@ scikit-learn
 numpy
 PyYAML>=6.0.1
 bcrypt
+pydantic-settings
+skops

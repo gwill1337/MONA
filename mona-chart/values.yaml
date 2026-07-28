@@ -10,52 +10,78 @@ global:
 
 images:
   fastapi:
-    repository: gwill1337/mona-fastapi
-    tag: latest
-    pullPolicy: Always
+    repository: mona-fastapi
+    tag: local
+    digest: ""
+    pullPolicy: IfNotPresent
   react:
-    repository: gwill1337/mona-react
-    tag: latest
-    pullPolicy: Always
+    repository: mona-react
+    tag: local
+    digest: ""
+    pullPolicy: IfNotPresent
   celery:
-    repository: gwill1337/mona-celery
-    tag: latest
-    pullPolicy: Always
+    repository: mona-celery
+    tag: local
+    digest: ""
+    pullPolicy: IfNotPresent
   postgres:
     repository: postgres
     tag: "16"
-    pullPolicy: IfNotPresent
+    digest: ""
+    pullPolicy: Always
   redis:
     repository: redis
     tag: "7"
-    pullPolicy: IfNotPresent
+    digest: ""
+    pullPolicy: Always
   prometheus:
     repository: prom/prometheus
-    tag: latest
-    pullPolicy: IfNotPresent
+    tag: "v3.12.0"
+    digest: ""
+    pullPolicy: Always
 
 fastapi:
   replicas: 1
+  automountServiceAccountToken: false
   env:
-    ADMIN_USERNAMES: "admin"
-    ADMIN_PASSWORDS: "admin123"
-    USER_USERNAMES: "user1"
-    USER_PASSWORDS: "userpass1"
+    ADMIN_USERNAMES: ""
+    ADMIN_PASSWORDS: ""
+    USER_USERNAMES: ""
+    USER_PASSWORDS: ""
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  initContainerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
   service:
     type: NodePort
     port: 80
-    targetPort: 80
+    targetPort: 8080
     nodePort: 30080
   livenessProbe:
     httpGet:
       path: /health/live
-      port: 80
+      port: 8080
     initialDelaySeconds: 5
     periodSeconds: 10
   readinessProbe:
     httpGet:
       path: /health/ready
-      port: 80
+      port: 8080
     initialDelaySeconds: 5
     periodSeconds: 10
   resources:
@@ -64,38 +90,122 @@ fastapi:
 
 react:
   replicas: 1
+  automountServiceAccountToken: false
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
   service:
     type: NodePort
     port: 80
-    targetPort: 80
+    targetPort: 8080
     nodePort: 30081
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 5
+    periodSeconds: 10
   resources:
     requests: { cpu: "100m", memory: "128Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
 
 celeryWorker:
   replicas: 1
+  automountServiceAccountToken: false
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  initContainerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
   command: ["celery", "-A", "celery_conf.app", "worker", "--loglevel=info"]
+  livenessProbe:
+    exec:
+      command: ["/bin/sh", "-c", "celery -A celery_conf.app inspect ping -d celery@$HOSTNAME --timeout 10"]
+    initialDelaySeconds: 40
+    periodSeconds: 60
+    timeoutSeconds: 15
+    failureThreshold: 3
+  readinessProbe:
+    exec:
+      command: ["/bin/sh", "-c", "celery -A celery_conf.app inspect ping -d celery@$HOSTNAME --timeout 10"]
+    initialDelaySeconds: 20
+    periodSeconds: 30
+    timeoutSeconds: 15
+    failureThreshold: 3
   resources:
     requests: { cpu: "100m", memory: "128Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
 
 celeryBeat:
   replicas: 1
-  command: ["celery", "-A", "celery_conf.app", "beat", "--loglevel=info"]
+  automountServiceAccountToken: false
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  initContainerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  command: ["celery", "-A", "celery_conf.app", "beat", "--loglevel=info", "-s", "/tmp/celerybeat-schedule"]
   resources:
     requests: { cpu: "100m", memory: "128Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
 
 postgres:
+  automountServiceAccountToken: false
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop: ["ALL"]
   service:
     port: 5432
   auth:
-    user: myuser
-    db: mydb
-    # Backwards-compatible keys expected by templates
-    username: myuser
-    database: mydb
+    user: ""
+    password: ""
+    db: ""
   persistence:
     enabled: true
     size: 1Gi
@@ -104,6 +214,20 @@ postgres:
     limits: { cpu: "500m", memory: "512Mi" }
 
 redis:
+  automountServiceAccountToken: false
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
   service:
     port: 6379
   persistence:
@@ -115,6 +239,20 @@ redis:
 
 prometheus:
   enabled: true
+  automountServiceAccountToken: false
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65534
+    runAsGroup: 65534
+    fsGroup: 65534
+    seccompProfile:
+      type: RuntimeDefault
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
   replicas: 1
   service:
     type: NodePort
@@ -169,8 +307,8 @@ kube-prometheus-stack:
         - name: "null"
         - name: telegram
           telegram_configs:
-            - bot_token:
-              chat_id:
+            - bot_token: ""
+              chat_id: ""
               send_resolved: true
               parse_mode: HTML
               message: '{{ template "telegram.custom.message" . }}'
@@ -180,7 +318,6 @@ kube-prometheus-stack:
     service:
       type: NodePort
       nodePort: 30300
-    adminPassword: "admin123"
     sidecar:
       dashboards:
         enabled: true

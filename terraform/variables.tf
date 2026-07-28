@@ -28,11 +28,18 @@ variable "user_password" {
 }
 
 variable "postgres_user" {
-  type    = string
-  default = "myuser"
+  type = string
 }
 
 variable "postgres_db" {
-  type    = string
-  default = "mydb"
+  type = string
+}
+
+variable "postgres_port" {
+  type = number
+}
+
+variable "grafana_admin_password" {
+  type      = string
+  sensitive = true
 }

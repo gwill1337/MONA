@@ -1,5 +1,3 @@
-import os
-
 from celery import Celery
 
 from mona_core.config import settings
@@ -18,7 +16,7 @@ app = Celery(
 
 
 # database_url = os.getenv("DATABASE_URL", "postgresql://myuser:1234@postgres:5432/mydb")
-database_url = settings.postgres_db
+database_url = settings.postgres_url
 if not database_url.startswith("db+"):
     database_url = f"db+{database_url}"
 

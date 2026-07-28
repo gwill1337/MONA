@@ -1,8 +1,10 @@
 import os
-import pickle
 from datetime import UTC, datetime, timedelta
 
 import requests
+
+# import pickle
+import skops.io as sio
 from sqlalchemy import select
 
 from mona_core.celery_conf import app
@@ -133,7 +135,7 @@ def train_model_task(hours: float, note: str):
         )
         model.fit(X_scaled)
 
-        model_bytes = pickle.dumps((model, scaler))
+        model_bytes = sio.dumps((model, scaler))
 
         record = TrainedModel(
             model_data=model_bytes,

@@ -121,7 +121,27 @@ class FakeRedis:
         self.storage.pop(key, None)
         return 1
 
+    async def incr(self, key):
+        val = self.storage.get(key, 0)
+        
+        if isinstance(val, (str, bytes)):
+            val = int(val)
+            
+        new_val = val + 1
+        self.storage[key] = new_val
+    
+        return new_val
 
+    async def expire(self, key, time):
+        if key in self.storage:
+            return True
+        return False
+
+    async def ttl(self, key):
+        if key in self.storage:
+            return 300
+        return -2
+    
 @pytest.fixture()
 def mock_redis(monkeypatch):
     fake = FakeRedis()

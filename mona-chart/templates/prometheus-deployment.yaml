@@ -4,6 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: prometheus-main-metrics
+  namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.prometheus.replicas }}
   selector:
@@ -14,11 +15,16 @@ spec:
       labels:
         app: prometheus-main-metrics
     spec:
+      automountServiceAccountToken: {{ .Values.prometheus.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.prometheus.podSecurityContext | nindent 8 }}
       serviceAccountName: {{ include "mona.prometheusServiceAccount" . }}
       containers:
         - name: prometheus-main-metrics
           image: "{{ .Values.images.prometheus.repository }}:{{ .Values.images.prometheus.tag }}"
           imagePullPolicy: {{ .Values.images.prometheus.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.prometheus.containerSecurityContext | nindent 12 }}
           args:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.path=/prometheus
@@ -30,6 +36,14 @@ spec:
               mountPath: /etc/prometheus
             - name: data
               mountPath: /prometheus
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: {{ .Values.prometheus.service.targetPort }}
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: {{ .Values.prometheus.service.targetPort }}
           resources:
             {{- toYaml .Values.prometheus.resources | nindent 12 }}
       volumes:

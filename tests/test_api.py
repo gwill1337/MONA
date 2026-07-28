@@ -619,3 +619,56 @@ class TestSecureEndpoints:
         resp = client.request(method, endpoint)
 
         assert resp.status_code == 401
+
+class TestRateLimiter:
+    def test_login_rate_limit_exceeded(self, client, db_session, mock_redis):
+        admin = Users(username="admin")
+        admin.set_password("correct_password")
+        db_session.add(admin)
+        db_session.commit()
+
+        responses = []
+
+        for _ in range(10):
+            resp = client.post(
+                "/api/auth/login",
+                json={"username": "admin", "password": "wrong_password"}
+            )
+            responses.append(resp)
+
+        assert any(r.status_code == 429 for r in responses)
+        
+        last_resp = responses[-1]
+        assert last_resp.status_code == 429
+
+    def test_successful_login_resets_rate_limit(self, client, db_session, mock_redis):
+        admin = Users(username="admin")
+        admin.set_password("123456")
+        db_session.add(admin)
+        db_session.commit()
+
+        for _ in range(2):
+            client.post(
+                "/api/auth/login",
+                json={"username": "admin", "password": "wrong_password"}
+            )
+
+        assert any("user:admin" in key or "ip:" in key for key in mock_redis.storage)
+
+        resp = client.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "123456"}
+        )
+        assert resp.status_code == 200
+
+        assert mock_redis.storage.get("user:admin") is None
+
+    def test_rate_limit_per_user(self, client, db_session, mock_redis):
+        mock_redis.storage["login_attempts:user:target_user"] = 5
+
+        resp = client.post(
+            "/api/auth/login",
+            json={"username": "target_user", "password": "some_password"}
+        )
+
+        assert resp.status_code == 429

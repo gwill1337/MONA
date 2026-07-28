@@ -157,10 +157,10 @@ class TestLoadUserModel:
         fake_model = object()
         fake_scaler = object()
 
-        import pickle
+        import skops.io as sio
 
         record = TrainedModel(
-            model_data=pickle.dumps(
+            model_data=sio.dumps(
                 (
                     fake_model,
                     fake_scaler,
@@ -294,11 +294,11 @@ class TestDetectAnomalies:
 
         db_session.commit()
 
-        import pickle
+        import skops.io as sio
 
         db_session.add(
             TrainedModel(
-                model_data=pickle.dumps(
+                model_data=sio.dumps(
                     (
                         FakeUserModel(),
                         FakeUserScaler(),

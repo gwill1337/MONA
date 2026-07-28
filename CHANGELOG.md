@@ -1,6 +1,21 @@
 # CHANGELOG
 
 All notable changes to this project will be documented in this file.
+## [v0.6.0] - 2026-07-28 - Security update
+### Added
+- Added limiter for login
+- Added config for .env
+- Added security checks into CI pipeline
+- Added tests for limiter
+
+### Changed
+- Changed docker images from docker hub to local
+
+### Security
+- Fixed a critical bug where sensitive values from `terraform.tfvars`
+  were leaking into Docker image layers pushed to a registry.
+  Affected credentials have been rotated.
+- Enhanced security for IaC and docker images.
 
 ## [v0.5.0] - 2026-07-14
 ### Added
@@ -40,7 +55,7 @@ Splited main.py to 3 files:
 ### Added
 - Added uv for dependencies
 
-### Deleted
+### Removed
 - ruff.toml (Moved to pyproject.toml)
 - pytest.ini (Moved to pyproject.toml)
 - mypy.ini (Moved to pyproject.toml)

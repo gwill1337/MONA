@@ -16,6 +16,7 @@ dependencies = [
     "pyyaml>=6.0.1",
     "redis>=8.0.1",
     "requests>=2.34.2",
+    "skops>=0.14.0",
     "sqlalchemy>=2.0.51",
     "uvicorn>=0.51.0",
 ]
@@ -25,7 +26,7 @@ line-length = 88
 target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W"]
+select = ["E", "F", "I", "N", "W", "S"]
 ignore = ["E501"]
 
 [tool.ruff.lint.pep8-naming]
@@ -72,4 +73,5 @@ dev = [
     "sqlalchemy>=2.0.51",
     "uvicorn>=0.51.0",
     "scikit-learn>=1.9.0",
+    "checkov>=3.3.8",
 ]

@@ -1,4 +1,3 @@
-import os
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -13,7 +12,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from mona_core.config import settings
 
 # DATABASE = os.getenv("DATABASE_URL", "postgresql://myuser:1234@localhost:5432/mydb")
-DATABASE = settings.postgres_db
+DATABASE = settings.postgres_url
 
 engine = create_engine(DATABASE)
 SessionLocal = sessionmaker(bind=engine)

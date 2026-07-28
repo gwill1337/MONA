@@ -2,15 +2,14 @@ import json
 import os
 import secrets
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 from redis.asyncio import from_url
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from mona_core.db import SessionLocal, Users
-
 from mona_core.config import settings
+from mona_core.db import SessionLocal, Users
 
 # redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
 redis_url = settings.redis_url
@@ -81,6 +80,29 @@ def seed_admin():
             print(f"Error: {e}")
 
 
+# limiter
+async def check_rate_limit(
+    key: str,
+    max_attempts: int = settings.max_attempts,
+    window: int = settings.lockout_seconds,
+):
+    attempts_key = f"login_attempts:{key}"
+    attempts = await redis_client.incr(attempts_key)
+    if attempts == 1:
+        await redis_client.expire(attempts_key, window)
+
+    if attempts > max_attempts:
+        ttl = await redis_client.ttl(attempts_key)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many attempts. Try again in {ttl} seconds",
+        )
+
+
+async def reset_rate_limit(key: str):
+    await redis_client.delete(f"login_attempts:{key}")
+
+
 # ─── Auth ────────────────────────────────────────────────────────────────
 async def get_current_user(user_session: str | None = Cookie(None)) -> dict:
     if not user_session:
@@ -108,16 +130,29 @@ auth_router = APIRouter(tags=["Auth"])
 
 # ─── login & logout ─────────────────────────────────────────────────────────
 @auth_router.post("/api/auth/login", tags=["Auth"])
-async def login(body: LoginRequest, response: Response, db: Session = Depends(get_db)):
-    stmt = select(Users).where(Users.username == body.username)
-    admin = db.execute(stmt).scalar_one_or_none()
+async def login(
+    body: LoginRequest,
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    ip = request.client.host if request.client else "127.0.0.1"
 
-    if not admin or not admin.check_password(body.password):
+    await check_rate_limit(f"ip:{ip}")
+    await check_rate_limit(f"user:{body.username}")
+
+    stmt = select(Users).where(Users.username == body.username)
+    user = db.execute(stmt).scalar_one_or_none()
+
+    if not user or not user.check_password(body.password):
         raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    await reset_rate_limit(f"ip:{ip}")
+    await reset_rate_limit(f"user:{body.username}")
 
     session_id = secrets.token_urlsafe(32)
     session_data = json.dumps(
-        {"id": admin.id, "username": admin.username, "role": admin.role}
+        {"id": user.id, "username": user.username, "role": user.role}
     )
     await redis_client.set(f"session:{session_id}", session_data, ex=43200)
 
@@ -129,7 +164,7 @@ async def login(body: LoginRequest, response: Response, db: Session = Depends(ge
         samesite="lax",
         max_age=43200,
     )
-    return {"status": "ok", "message": "Successfully login", "role": admin.role}
+    return {"status": "ok", "message": "Successfully login", "role": user.role}
 
 
 @auth_router.post("/api/auth/logout", tags=["Auth"])

@@ -1,4 +1,3 @@
-import os
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 
@@ -10,6 +9,7 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
+from mona_core.config import settings
 from mona_core.db import Anomaly, Device, Metric, SessionLocal, TrainedModel
 from mona_core.security import (
     admin_router,
@@ -20,7 +20,6 @@ from mona_core.security import (
 )
 from mona_core.validators import DeviceCreate
 
-from mona_core.config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

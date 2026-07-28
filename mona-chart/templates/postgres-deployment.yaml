@@ -3,6 +3,7 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: postgres-statefulset
+  namespace: {{ .Release.Namespace }}
 spec:
   serviceName: postgres
   replicas: 1
@@ -14,35 +15,69 @@ spec:
       labels:
         app: postgres-pod
     spec:
+      automountServiceAccountToken: {{ .Values.postgres.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.postgres.podSecurityContext | nindent 8 }}
+      # initContainers:
+      #   - name: fix-permissions
+      #     image: busybox:1.36
+      #     imagePullPolicy: Always
+      #     securityContext:
+      #       runAsUser: 0
+      #       runAsNonRoot: false
+      #       allowPrivilegeEscalation: false
+      #       readOnlyRootFilesystem: false
+      #       capabilities:
+      #         drop: ["ALL"]
+      #     # command: ["sh", "-c", "mkdir -p /var/lib/postgresql/data/pgdata && chown -R 999:999 /var/lib/postgresql/data"]
+      #     command: ["sh", "-c", "mkdir -p /var/lib/postgresql/data/pgdata && chown -R 10001:10001 /var/lib/postgresql/data"]
+      #     resources:
+      #       requests: { memory: "16Mi", cpu: "10m" }
+      #       limits: { memory: "32Mi", cpu: "50m" }
+      #     volumeMounts:
+      #       - name: pgdata
+      #         mountPath: /var/lib/postgresql/data
       containers:
         - name: postgres
           image: "{{ .Values.images.postgres.repository }}:{{ .Values.images.postgres.tag }}"
           imagePullPolicy: {{ .Values.images.postgres.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.postgres.containerSecurityContext | nindent 12 }}
           ports:
             - containerPort: {{ .Values.postgres.service.port }}
           env:
             - name: POSTGRES_USER
               value: {{ .Values.postgres.auth.user | quote }}
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: postgres-secret
-                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_PASSWORD_FILE
+              value: /etc/postgres-secret/POSTGRES_PASSWORD
             - name: POSTGRES_DB
               value: {{ .Values.postgres.auth.db | quote }}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data
+            - name: postgres-secret
+              mountPath: /etc/postgres-secret
+              readOnly: true
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ .Values.postgres.auth.user }}"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ .Values.postgres.auth.user }}"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
           resources:
             {{- toYaml .Values.postgres.resources | nindent 12 }}
-  volumeClaimTemplates:
-    - metadata:
-        name: pgdata
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: {{ .Values.postgres.persistence.size }}
+      volumes:
+        - name: pgdata
+          emptyDir: {}
+        - name: postgres-secret
+          secret:
+            secretName: postgres-secret
 
 ---
 
@@ -50,6 +85,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
+  namespace: {{ .Release.Namespace }}
 spec:
   type: ClusterIP
   ports:

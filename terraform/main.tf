@@ -13,20 +13,24 @@ terraform {
       source  = "hashicorp/random"
       version = "3.6.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = ">= 3.0.0"
+    }
   }
 }
-
 
 # ─── locals ───────────────────────────────────────────────────────────────
-locals {
-  postgres_env = {
-    "POSTGRES_USER"     = var.postgres_user
-    "POSTGRES_PASSWORD" = random_password.postgres_password.result
-    "POSTGRES_DB"       = var.postgres_db
-    "POSTGRES_HOST"     = "postgres"
-    "POSTGRES_PORT"     = "5432"
-  }
-}
+# locals {
+#   postgres_env = {
+#     "POSTGRES_USER"     = var.postgres_user
+#     "POSTGRES_PASSWORD" = random_password.postgres_password.result
+#     "POSTGRES_DB"       = var.postgres_db
+#     "POSTGRES_HOST"     = "postgres"
+#     "POSTGRES_PORT"     = "5432"
+#   }
+# }
+
 # ─── providers ───────────────────────────────────────────────────────────────
 
 provider "kind" {}
@@ -82,7 +86,22 @@ resource "kind_cluster" "mona_cluster" {
   }
 }
 
+# ─── Uploading images into Kind ────────────────────────────────────────────────
 
+resource "null_resource" "kind_load_images" {
+
+  triggers = {
+    always_run = timestamp()
+  }
+
+  provisioner "local-exec" {
+    command = "kind load docker-image mona-fastapi:local mona-celery:local mona-react:local --name ${kind_cluster.mona_cluster.name}"
+  }
+
+  depends_on = [kind_cluster.mona_cluster]
+}
+
+# ─── Helm Releases ───────────────────────────────────────────────────────────
 
 resource "helm_release" "loki_stack" {
   name             = "loki-stack"
@@ -124,39 +143,44 @@ resource "helm_release" "mona_app" {
 
   values = [
     file("${path.module}/../mona-chart/values.yaml"),
-    file("${path.module}/../mona-chart/values-prod.yaml"),
+    # file("${path.module}/../mona-chart/values-prod.yaml"),
   ]
 
-  dynamic "set_sensitive" {
-    for_each = local.postgres_env
-    iterator = env
-    content {
-      name  = "fastapi.env.${env.key}"
-      value = env.value
-    }
+  # dynamic "set_sensitive" {
+  #   for_each = local.postgres_env
+  #   iterator = env
+  #   content {
+  #     name  = "fastapi.env.${env.key}"
+  #     value = env.value
+  #   }
+  # }
+
+  # dynamic "set_sensitive" {
+  #   for_each = local.postgres_env
+  #   iterator = env
+  #   content {
+  #     name  = "celeryWorker.env.${env.key}"
+  #     value = env.value
+  #   }
+  # }
+
+  set {
+    name  = "postgres.auth.user"
+    value = var.postgres_user
+  }
+  set {
+    name  = "postgres.auth.db"
+    value = var.postgres_db
+  }
+  set {
+    name  = "postgres.service.port"
+    value = var.postgres_port
   }
 
-  dynamic "set_sensitive" {
-    for_each = local.postgres_env
-    iterator = env
-    content {
-      name  = "celeryWorker.env.${env.key}"
-      value = env.value
-    }
-  }
-  
   set_sensitive {
     name  = "postgres.auth.password"
     value = random_password.postgres_password.result
   }
-  # set_sensitive {
-  #   name  = "celeryWorker.env.DATABASE_URL"
-  #   value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
-  # }
-  # set_sensitive {
-  #   name  = "fastapi.env.DATABASE_URL"
-  #   value = "postgresql://myuser:${random_password.postgres_password.result}@postgres:5432/mydb"
-  # }
   set_sensitive {
     name  = "fastapi.env.ADMIN_USERNAMES"
     value = replace(join(",", var.admin_username), ",", "\\,")
@@ -182,8 +206,16 @@ resource "helm_release" "mona_app" {
     name  = "kube-prometheus-stack.alertmanager.config.receivers[1].telegram_configs[0].chat_id"
     value = var.telegram_chat_id
   }
+  set_sensitive {
+    name  = "kube-prometheus-stack.grafana.adminPassword"
+    value = var.grafana_admin_password
+  }
 
-  depends_on = [helm_release.loki_stack]
+  # Ждем и Loki, И успешную загрузку Docker-образов в Kind!
+  depends_on = [
+    helm_release.loki_stack,
+    null_resource.kind_load_images
+  ]
 }
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────
