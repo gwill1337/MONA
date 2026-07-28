@@ -28,15 +28,15 @@ variable "user_password" {
 }
 
 variable "postgres_user" {
-  type    = string
+  type = string
 }
 
 variable "postgres_db" {
-  type    = string
+  type = string
 }
 
 variable "postgres_port" {
-  type    = number
+  type = number
 }
 
 variable "grafana_admin_password" {
