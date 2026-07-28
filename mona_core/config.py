@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     # DB
     redis_url: str = "redis://redis:6379"
 
-    #DON'T TOUCH!!!!
+    # DON'T TOUCH!!!!
     database_url: str | None = None
 
     postgres_user: str = ""

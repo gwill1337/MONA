@@ -83,7 +83,6 @@ jobs:
         with:
           file_or_dir: |
             mona-chart/values.yaml
-            mona-chart/values-prod.yaml
             mona-chart/Chart.yaml
           config_data: |
             extends: default
