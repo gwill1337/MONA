@@ -1,0 +1,12 @@
+extends: default
+
+rules:
+  line-length:
+    max: 200
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+  document-start: disable
+  new-line-at-end-of-file: disable
+  new-lines: disable
+  trailing-spaces: disable

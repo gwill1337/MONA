@@ -1,4 +1,14 @@
 # MONA - Monitor & Analytics Tool
+<div align="center">
+
+![CI Pipeline](https://img.shields.io/badge/CI_Pipeline-Automated_Checks-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-844FBA?style=for-the-badge&logo=terraform&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+
+</div>
 
 ## About
 MONA is a K8s-based monitoring and analytics tool managed with Terraform and Helm. It collects and analyzes system metrics, built on Python with Celery and Redis as a task broker for metrics collection and ML workloads. FastAPI serves as the REST API/backend, React + Tailwind v4 + TypeScript handles web UI frontend, and PostgreSQL stores all metrics data.
@@ -11,11 +21,13 @@ MONA is a K8s-based monitoring and analytics tool managed with Terraform and Hel
 4. Configure the necessary values in "mona-chart/[values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml)" [[ConfigurationGuide]](https://github.com/gwill1337/MONA/blob/dev/ConfigurationGuide.md). *such as PC's IP & name or just add them via **Admin panel***
 5. Configure `config.py` for ML and FastAPI limiter settings.
 6. Create `terraform.tfvars` in terraform folder from `terraform.tfvars.example`.
-7. Deploy: Run the automated script:
+7. Deploy: Run the automated script:   
+
+**Windows:**
 ```Powershell
 .\deploy.ps1 -all # or .\deploy.ps1 -deploy
 ```
-Or via makefile:
+**Linux/MacOS:**
 ```makefile
 make all
 ```
@@ -27,8 +39,8 @@ make all
 * **Admin panel:** `localhost:30081/admin` *Default username: admin, password: admin123*
 * **Dashboards:** `localhost:30081/admin/dashboard`
 * **Grafana:** `localhost:30300/` *Default username: admin, password: admin123*
-* **Prometheus(Cluster):** `localhost:30091/`
 * **Prometheus(Monitoring devices):** `localhost:30391/`
+* **Prometheus(Cluster):** `localhost:30091/`
 
 <details>
 <summary><b>Click to view detailed API endpoints</b></summary>
@@ -38,22 +50,22 @@ make all
 * Swagger: `localhost:30080/docs`
 * Main-metrics[Get]: `localhost:30080/db-metrics`
 * Prometheus targets[Get]: `localhost:30080/api/prometheus/targets`
-* Anomalies[Get]: `localhost:30080/anomalies`
-* Model-info[Get]: `localhost:30080/model-info`
-* Devices[Get]: `localhost:30080/devices`
-* Devices[Post]: `localhost:30080/devices` *available via curl*
-* Devices[Delete]: `localhost:30080/devices/{device_id}` *available via curl*
-* Train[Post]: `localhost:30080/train` *available via curl*
-* Model[Delete]: `localhost:30080/model` *available via curl*
-* Dashboard[Get]: `localhost:30080/api/dashboard`
+* Anomalies[Get]: `localhost:30080/api/v1/anomalies`
+* Model-info[Get]: `localhost:30080/api/v1/model-info`
+* Devices[Get]: `localhost:30080/api/v1/devices`
+* Devices[Post]: `localhost:30080/api/v1/devices` *available via curl*
+* Devices[Delete]: `localhost:30080/api/v1/devices/{device_id}` *available via curl*
+* Train[Post]: `localhost:30080/api/v1/train` *available via curl*
+* Model[Delete]: `localhost:30080/api/v1/model` *available via curl*
+* Dashboard[Get]: `localhost:30080/api/v1/dashboard`
 #### Probes:
 * Liveness[Get]: `localhost:30080/health/live`
 * Readiness[Get]: `localhost:30080/health/ready`
 
 #### Authentication:
-* Login[Post]: `localhost:30080/api/auth/login`
-* Logout[Post]: `localhost:30080/api/auth/logout`
-* Check auth[Get]: `localhost:30080/api/auth/me`
+* Login[Post]: `localhost:30080/api/v1/auth/login`
+* Logout[Post]: `localhost:30080/api/v1/auth/logout`
+* Check auth[Get]: `localhost:30080/api/v1auth/me`
 
 </details>
 

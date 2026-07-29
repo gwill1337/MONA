@@ -31,13 +31,13 @@ class TestProbes:
 
 class TestDevices:
     def test_get_device_empty(self, client, mock_user_auth):
-        resp = client.get("/devices")
+        resp = client.get("/api/v1/devices")
         assert resp.status_code == 200
         assert resp.json() == []
 
     def test_create_device(self, client, mock_admin_auth):
         payload = {"ip": "192.168.1.10", "name": "office-pc-1", "is_active": True}
-        resp = client.post("/devices", json=payload)
+        resp = client.post("/api/v1/devices", json=payload)
 
         assert resp.status_code == 201
         body = resp.json()
@@ -48,24 +48,24 @@ class TestDevices:
 
     def test_create_device_default_active(self, client, mock_admin_auth):
         payload = {"ip": "192.168.1.10", "name": "office-pc-1"}
-        resp = client.post("/devices", json=payload)
+        resp = client.post("/api/v1/devices", json=payload)
         assert resp.status_code == 201
         assert resp.json()["is_active"] is True
 
     def test_create_device_duplicate_name_conflict(self, client, mock_admin_auth):
         payload = {"ip": "10.0.0.1", "name": "dup-name"}
-        first = client.post("/devices", json=payload)
+        first = client.post("/api/v1/devices", json=payload)
         assert first.status_code == 201
 
-        second = client.post("/devices", json={"ip": "10.0.0.2", "name": "dup-name"})
+        second = client.post("/api/v1/devices", json={"ip": "10.0.0.2", "name": "dup-name"})
         assert second.status_code == 409
         assert second.json()["detail"] == "Name already exists"
 
     def test_list_devices_after_create(self, client, mock_admin_auth):
-        client.post("/devices", json={"ip": "10.0.0.1", "name": "a"})
-        client.post("/devices", json={"ip": "10.0.0.2", "name": "b"})
+        client.post("/api/v1/devices", json={"ip": "10.0.0.1", "name": "a"})
+        client.post("/api/v1/devices", json={"ip": "10.0.0.2", "name": "b"})
 
-        resp = client.get("/devices")
+        resp = client.get("/api/v1/devices")
         assert resp.status_code == 200
         names = {d["name"] for d in resp.json()}
         assert names == {"a", "b"}
@@ -76,15 +76,15 @@ class TestDevices:
         db_session.commit()
         db_session.refresh(dev)
 
-        resp = client.delete(f"/devices/{dev.id}")
+        resp = client.delete(f"/api/v1/devices/{dev.id}")
         assert resp.status_code == 200
         assert resp.json() == {"message": "Device deleted successfully"}
 
-        resp2 = client.get("/devices")
+        resp2 = client.get("/api/v1/devices")
         assert resp2.json() == []
 
     def test_delete_device_not_found(self, client, mock_admin_auth):
-        resp = client.delete("/devices/99999")
+        resp = client.delete("/api/v1/devices/99999")
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Device not found"
 
@@ -103,7 +103,7 @@ class TestValidation:
     )
     def test_create_device_invalid_ip(self, client, ip, name, mock_admin_auth):
         payload = {"ip": ip, "name": name, "is_active": True}
-        resp = client.post("/devices", json=payload)
+        resp = client.post("/api/v1/devices", json=payload)
 
         assert resp.status_code == 422
         assert (
@@ -124,7 +124,7 @@ class TestValidation:
     )
     def test_create_device_invalid_name(self, ip, name, client, mock_admin_auth):
         payload = {"ip": ip, "name": name, "is_active": True}
-        resp = client.post("/devices", json=payload)
+        resp = client.post("/api/v1/devices", json=payload)
 
         assert resp.status_code == 422
         assert (
@@ -142,26 +142,26 @@ class TestValidation:
         ],
     )
     def test_create_device_valid_name(self, client, ip, name, mock_admin_auth):
-        resp = client.post("/devices", json={"ip": ip, "name": name, "is_active": True})
+        resp = client.post("/api/v1/devices", json={"ip": ip, "name": name, "is_active": True})
         assert resp.status_code == 201
         assert resp.json()["name"] == name
 
     def test_create_device_ip_leading_zeros_rejected(self, client, mock_admin_auth):
         resp = client.post(
-            "/devices",
+            "/api/v1/devices",
             json={"ip": "192.168.001.001", "name": "test", "is_active": True},
         )
         assert resp.status_code == 422
 
     def test_create_device_ip_cidr_rejected(self, client, mock_admin_auth):
         resp = client.post(
-            "/devices", json={"ip": "10.0.0.1/24", "name": "test", "is_active": True}
+            "/api/v1/devices", json={"ip": "10.0.0.1/24", "name": "test", "is_active": True}
         )
         assert resp.status_code == 422
 
     def test_create_device_trims_whitespace(self, client, mock_admin_auth):
         resp = client.post(
-            "/devices",
+            "/api/v1/devices",
             json={
                 "ip": "  192.168.1.30  ",
                 "name": "  trimmed-name  ",
@@ -174,19 +174,19 @@ class TestValidation:
         assert body["name"] == "trimmed-name"
 
     def test_create_device_missing_name(self, client, mock_admin_auth):
-        resp = client.post("/devices", json={"ip": "192.168.1.40", "is_active": True})
+        resp = client.post("/api/v1/devices", json={"ip": "192.168.1.40", "is_active": True})
         assert resp.status_code == 422
         assert resp.json()["detail"][0]["type"] == "missing"
 
     def test_create_device_name_wrong_type(self, client, mock_admin_auth):
         resp = client.post(
-            "/devices", json={"ip": "192.168.1.41", "name": 12345, "is_active": True}
+            "/api/v1/devices", json={"ip": "192.168.1.41", "name": 12345, "is_active": True}
         )
         assert resp.status_code == 422
 
     def test_create_device_ipv4_mapped_ipv6(self, client, mock_admin_auth):
         resp = client.post(
-            "/devices",
+            "/api/v1/devices",
             json={"ip": "::ffff:192.168.1.1", "name": "mapped-ipv6", "is_active": True},
         )
         assert resp.status_code == 201
@@ -195,7 +195,7 @@ class TestValidation:
 
 class TestModel:
     def test_model_info_no_model(self, client, mock_user_auth):
-        resp = client.get("/model-info")
+        resp = client.get("/api/v1/model-info")
         assert resp.status_code == 200
         assert resp.json() == {
             "status": "no_model",
@@ -215,7 +215,7 @@ class TestModel:
         )
         db_session.commit()
 
-        resp = client.get("/model-info")
+        resp = client.get("/api/v1/model-info")
         assert resp.status_code == 200
         body = resp.json()
         assert body["status"] == "ok"
@@ -237,7 +237,7 @@ class TestModel:
         )
         db_session.commit()
 
-        resp = client.get("/model-info")
+        resp = client.get("/api/v1/model-info")
         assert resp.json()["status"] == "no_model"
 
     def test_delete_model(self, client, db_session, mock_admin_auth):
@@ -253,23 +253,23 @@ class TestModel:
         )
         db_session.commit()
 
-        resp = client.delete("/model")
+        resp = client.delete("/api/v1/model")
         assert resp.status_code == 200
         body = resp.json()
         assert body["status"] == "ok"
         assert body["deleted"] == 1
 
-        assert client.get("/model-info").json()["status"] == "no_model"
+        assert client.get("/api/v1/model-info").json()["status"] == "no_model"
 
     def test_delete_model_when_none_exists(self, client, mock_admin_auth):
-        resp = client.delete("/model")
+        resp = client.delete("/api/v1/model")
         assert resp.status_code == 200
         assert resp.json()["deleted"] == 0
 
 
 class TestDashboardAndMetrics:
     def test_db_metrics_empty(self, client, mock_user_auth):
-        resp = client.get("/db-metrics")
+        resp = client.get("/api/v1/db-metrics")
         assert resp.status_code == 200
         assert resp.json() == {"items": [], "next_cursor": None}
 
@@ -282,7 +282,7 @@ class TestDashboardAndMetrics:
         )
         db_session.commit()
 
-        resp = client.get("/db-metrics", params={"device": "srv-1"})
+        resp = client.get("/api/v1/db-metrics", params={"device": "srv-1"})
         body = resp.json()
         assert len(body) == 2
         assert body["items"][0]["device"] == "srv-1"
@@ -307,7 +307,7 @@ class TestDashboardAndMetrics:
         )
         db_session.commit()
 
-        resp = client.get("/api/dashboard", params={"hours": 1})
+        resp = client.get("/api/v1/dashboard", params={"hours": 1})
         assert resp.status_code == 200
         body = resp.json()
 
@@ -321,13 +321,13 @@ class TestDashboardAndMetrics:
         db_session.add(Metric(cpu=1, ram=1, device="srv-1", timestamp=old))
         db_session.commit()
 
-        resp = client.get("/api/dashboard", params={"hours": 1})
+        resp = client.get("/api/v1/dashboard", params={"hours": 1})
         assert resp.json()["metrics"] == []
 
 
 class TestTasks:
     def test_train_model_submits_task(self, client, mock_celery, mock_admin_auth):
-        resp = client.post("/train", params={"hours": 2.5, "note": "manual run"})
+        resp = client.post("/api/v1/train", params={"hours": 2.5, "note": "manual run"})
 
         assert resp.status_code == 202
         body = resp.json()
@@ -341,7 +341,7 @@ class TestTasks:
         assert call["kwargs"] == {"hours": 2.5, "note": "manual run"}
 
     def test_train_model_defaults(self, client, mock_celery, mock_admin_auth):
-        resp = client.post("/train")
+        resp = client.post("/api/v1/train")
         assert resp.status_code == 202
         # call = mock_celery["send_task_calls"][0]
         # assert call["kwargs"] == {"hours": 1.0, "note": ""}
@@ -350,7 +350,7 @@ class TestTasks:
         assert call["name"] == "tasks.train_model_task"
 
     def test_task_status_pending(self, client, mock_celery, mock_user_auth):
-        resp = client.get("/task-status/some-task-id")
+        resp = client.get("/api/v1/task-status/some-task-id")
         assert resp.status_code == 200
         body = resp.json()
         assert body["task_id"] == "some-task-id"
@@ -365,7 +365,7 @@ class TestTasks:
             state="SUCCESS", result={"accuracy": 0.97}
         )
 
-        resp = client.get("/task-status/finished-task")
+        resp = client.get("/api/v1/task-status/finished-task")
         assert resp.status_code == 200
         body = resp.json()
         assert body["state"] == "SUCCESS"
@@ -377,7 +377,7 @@ class TestTasks:
             state="FAILURE", result="boom: division by zero"
         )
 
-        resp = client.get("/task-status/broken-task")
+        resp = client.get("/api/v1/task-status/broken-task")
         assert resp.status_code == 200
         body = resp.json()
         assert body["state"] == "FAILURE"
@@ -406,7 +406,7 @@ class TestAnomalies:
         )
         db_session.commit()
 
-        resp = client.get("/anomalies")
+        resp = client.get("/api/v1/anomalies")
         assert resp.status_code == 200
         body = resp.json()
         assert len(body) == 3
@@ -422,7 +422,7 @@ class TestAnomalies:
         )
         db_session.commit()
 
-        resp = client.get("/anomalies", params={"device": "srv-2"})
+        resp = client.get("/api/v1/anomalies", params={"device": "srv-2"})
         assert resp.status_code == 200
         body = resp.json()
         assert len(body) == 3
@@ -435,7 +435,7 @@ class TestAnomalies:
         db_session.add(self._make_anomaly("srv-1", now - timedelta(days=30)))
         db_session.commit()
 
-        resp = client.get("/anomalies", params={"hours": 0})
+        resp = client.get("/api/v1/anomalies", params={"hours": 0})
         assert resp.status_code == 200
         assert len(resp.json()) == 3
 
@@ -449,7 +449,7 @@ class TestAnomalies:
         )
         db_session.commit()
 
-        resp = client.get("/anomalies")
+        resp = client.get("/api/v1/anomalies")
         body = resp.json()
         timestamps = [a["timestamp"] for a in body["items"]]
         assert timestamps == sorted(timestamps, reverse=True)
@@ -488,7 +488,7 @@ class TestAuth:
         db_session.commit()
 
         resp = client.post(
-            "api/auth/login", json={"username": "admin", "password": "123456"}
+            "/api/v1/auth/login", json={"username": "admin", "password": "123456"}
         )
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
@@ -503,13 +503,13 @@ class TestAuth:
         db_session.commit()
 
         resp = client.post(
-            "api/auth/login", json={"username": "admin", "password": "123456"}
+            "/api/v1/auth/login", json={"username": "admin", "password": "123456"}
         )
         assert resp.status_code == 401
         assert resp.json()["detail"] == "Invalid username or password"
 
     def test_auth_me(self, client, mock_user_auth):
-        resp = client.get("/api/auth/me")
+        resp = client.get("/api/v1/auth/me")
 
         assert resp.status_code == 200
         assert resp.json() == {"authenticated": True}
@@ -518,7 +518,7 @@ class TestAuth:
         client.cookies.set("admin_session", "session123")
 
         resp = client.post(
-            "/api/auth/logout",
+            "/api/v1/auth/logout",
         )
 
         assert resp.status_code == 200
@@ -545,10 +545,10 @@ class TestAuth:
     @pytest.mark.parametrize(
         "method, endpoint",
         [
-            ("POST", "/devices"),
-            ("DELETE", "/devices/1"),
-            ("POST", "/train?hours=1"),
-            ("DELETE", "/model"),
+            ("POST", "/api/v1/devices"),
+            ("DELETE", "/api/v1/devices/1"),
+            ("POST", "/api/v1/train?hours=1"),
+            ("DELETE", "/api/v1/model"),
         ],
     )
     def test_admin_previliges_with_user(self, client, method, endpoint, mock_user_auth):
@@ -559,12 +559,12 @@ class TestAuth:
     @pytest.mark.parametrize(
         "method, endpoint",
         [
-            ("GET", "/devices"),
-            ("GET", "/anomalies"),
-            ("GET", "/model-info"),
-            ("GET", "/api/dashboard"),
-            ("GET", "/db-metrics"),
-            ("GET", "/task-status/dummy-task-id-123"),
+            ("GET", "/api/v1/devices"),
+            ("GET", "/api/v1/anomalies"),
+            ("GET", "/api/v1/model-info"),
+            ("GET", "/api/v1/dashboard"),
+            ("GET", "/api/v1/db-metrics"),
+            ("GET", "/api/v1/task-status/dummy-task-id-123"),
         ],
     )
     def test_user_previliges_with_user(
@@ -577,12 +577,12 @@ class TestAuth:
     @pytest.mark.parametrize(
         "method, endpoint",
         [
-            ("GET", "/devices"),
-            ("GET", "/anomalies"),
-            ("GET", "/model-info"),
-            ("GET", "/api/dashboard"),
-            ("GET", "/db-metrics"),
-            ("GET", "/task-status/dummy-task-id-123"),
+            ("GET", "/api/v1/devices"),
+            ("GET", "/api/v1/anomalies"),
+            ("GET", "/api/v1/model-info"),
+            ("GET", "/api/v1/dashboard"),
+            ("GET", "/api/v1/db-metrics"),
+            ("GET", "/api/v1/task-status/dummy-task-id-123"),
         ],
     )
     def test_user_previliges_with_admin(
@@ -598,21 +598,21 @@ class TestSecureEndpoints:
         "method, endpoint",
         [
             # Auth
-            ("GET", "/api/auth/me"),
+            ("GET", "/api/v1/auth/me"),
             # Devices
-            ("GET", "/devices"),
-            ("POST", "/devices"),
-            ("DELETE", "/devices/1"),
+            ("GET", "/api/v1/devices"),
+            ("POST", "/api/v1/devices"),
+            ("DELETE", "/api/v1/devices/1"),
             # Model & Anomalies
-            ("GET", "/anomalies"),
-            ("GET", "/model-info"),
-            ("POST", "/train?hours=1"),
-            ("DELETE", "/model"),
+            ("GET", "/api/v1/anomalies"),
+            ("GET", "/api/v1/model-info"),
+            ("POST", "/api/v1/train?hours=1"),
+            ("DELETE", "/api/v1/model"),
             # Dashboard & Metrics
-            ("GET", "/api/dashboard"),
-            ("GET", "/db-metrics"),
+            ("GET", "/api/v1/dashboard"),
+            ("GET", "/api/v1/db-metrics"),
             # Tasks
-            ("GET", "/task-status/dummy-task-id-123"),
+            ("GET", "/api/v1/task-status/dummy-task-id-123"),
         ],
     )
     def test_endpoints_without_cookie_return_401(self, client, method, endpoint):
@@ -631,7 +631,7 @@ class TestRateLimiter:
 
         for _ in range(10):
             resp = client.post(
-                "/api/auth/login",
+                "/api/v1/auth/login",
                 json={"username": "admin", "password": "wrong_password"}
             )
             responses.append(resp)
@@ -649,14 +649,14 @@ class TestRateLimiter:
 
         for _ in range(2):
             client.post(
-                "/api/auth/login",
+                "/api/v1/auth/login",
                 json={"username": "admin", "password": "wrong_password"}
             )
 
         assert any("user:admin" in key or "ip:" in key for key in mock_redis.storage)
 
         resp = client.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": "admin", "password": "123456"}
         )
         assert resp.status_code == 200
@@ -667,7 +667,7 @@ class TestRateLimiter:
         mock_redis.storage["login_attempts:user:target_user"] = 5
 
         resp = client.post(
-            "/api/auth/login",
+            "/api/v1/auth/login",
             json={"username": "target_user", "password": "some_password"}
         )
 
