@@ -350,7 +350,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
 
   const fetchModelInfo = useCallback(async () => {
     try {
-      const res = await apiFetch("/model-info");
+      const res = await apiFetch("/api/v1/model-info");
       setModelInfo(await res.json());
     } catch {}
   }, []);
@@ -373,7 +373,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
 
       // ── 1. Check Celery task result via /task-status ──────────────────────
       try {
-        const tr = await apiFetch(`/task-status/${taskId}`);
+        const tr = await apiFetch(`/api/v1/task-status/${taskId}`);
         if (tr.ok) {
           const ts = await tr.json();
           // state: PENDING | STARTED | SUCCESS | FAILURE | RETRY | REVOKED
@@ -388,7 +388,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
             // Real success — refresh model-info
             stop();
             await fetchModelInfo();
-            const infoRes = await apiFetch("/model-info");
+            const infoRes = await apiFetch("/api/v1/model-info");
             const info: ModelInfo = infoRes.ok ? await infoRes.json() : { status: "no_model" };
             setModelInfo(info);
             const pts = info.status === "ok" ? info.model!.points_count : prevPoints;
@@ -410,7 +410,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
 
       // ── 2. Fallback: if task-status endpoint missing, detect via model-info ─
       try {
-        const mr = await apiFetch("/model-info");
+        const mr = await apiFetch("/api/v1/model-info");
         if (mr.ok) {
           const info: ModelInfo = await mr.json();
           if (info.status === "ok" && (info.model?.points_count ?? 0) !== prevPoints) {
@@ -436,7 +436,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
     setPhase({ kind: "submitting" });
     try {
       const params = new URLSearchParams({ hours: trainHours, note: trainNote });
-      const res = await apiFetch(`/train?${params}`, {
+      const res = await apiFetch(`/api/v1/train?${params}`, {
           method: "POST",
       });
       const d = await res.json();
@@ -460,7 +460,7 @@ function ModelPanel({ onTrained }: { onTrained: () => void }) {
     if (!confirm("Reset model and return to auto-mode?")) return;
     setDeleting(true);
     try {
-      await apiFetch("/model", {
+      await apiFetch("/api/v1/model", {
           method: "DELETE",
       });
       await fetchModelInfo();
@@ -636,7 +636,7 @@ export default function Dashboard() {
   // ─── Fetch devices list ───────────────────────────────────────────────────
   const fetchDevices = useCallback(async () => {
     try {
-      const res = await apiFetch("/devices");
+      const res = await apiFetch("/api/v1/devices");
       const list: Device[] = await res.json();
       setDevices(list);
 
@@ -669,7 +669,7 @@ export default function Dashboard() {
   const fetchDashboard = useCallback(async () => {
     try {
       const params = new URLSearchParams({ hours: String(hours) });
-      const res = await apiFetch(`/api/dashboard?${params}`);
+      const res = await apiFetch(`/api/v1/dashboard?${params}`);
       const d: DashboardData = await res.json();
       setData(d);
     } catch {}

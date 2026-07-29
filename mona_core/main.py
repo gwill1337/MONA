@@ -267,7 +267,7 @@ def delete_model(db: Session = Depends(get_db)):
 
 
 # ─── Dashboard ──────────────────────────────────────────────────────────────
-@user_router.get("/api/dashboard")
+@user_router.get("/dashboard")
 def get_dashboard_data(
     hours: int = 1,
     device: str | None = None,
@@ -387,6 +387,6 @@ def get_task_status(task_id: str):
     }
 
 
-app.include_router(admin_router)
-app.include_router(user_router)
-app.include_router(auth_router)
+app.include_router(admin_router, prefix="/api/v1")
+app.include_router(user_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api/v1")

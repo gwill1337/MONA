@@ -1,6 +1,10 @@
 # CHANGELOG
 
 All notable changes to this project will be documented in this file.
+## [v0.7.0] - 2026-07-29 - API update
+### Added
+- Added api versioning except probes, prometheus endpoints.
+
 ## [v0.6.0] - 2026-07-28 - Security update
 ### Added
 - Added limiter for login

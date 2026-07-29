@@ -138,7 +138,7 @@ function AddDeviceModal({ onClose, onAdded }: AddDeviceModalProps) {
     setLoading(true);
     setError("");
     try {
-      const res = await apiFetch("/devices", {
+      const res = await apiFetch("/api/v1/devices", {
         method: "POST",
         body: JSON.stringify(form),
       });
@@ -409,7 +409,7 @@ export default function DeviceAdmin() {
 
   const fetchDevices = useCallback(async () => {
     try {
-      const res = await apiFetch("/devices");
+      const res = await apiFetch("/api/v1/devices");
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setDevices(data);
@@ -425,7 +425,7 @@ export default function DeviceAdmin() {
   const handleDeleteConfirm = async () => {
     if (!deviceToDelete) return;
     try {
-      const res = await apiFetch(`/devices/${deviceToDelete.id}`, {
+      const res = await apiFetch(`/api/v1/devices/${deviceToDelete.id}`, {
           method: "DELETE",
       });
       if (!res.ok) throw new Error("Failed to delete device");

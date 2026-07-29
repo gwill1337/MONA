@@ -129,7 +129,7 @@ auth_router = APIRouter(tags=["Auth"])
 
 
 # ─── login & logout ─────────────────────────────────────────────────────────
-@auth_router.post("/api/auth/login", tags=["Auth"])
+@auth_router.post("/auth/login", tags=["Auth"])
 async def login(
     body: LoginRequest,
     request: Request,
@@ -167,7 +167,7 @@ async def login(
     return {"status": "ok", "message": "Successfully login", "role": user.role}
 
 
-@auth_router.post("/api/auth/logout", tags=["Auth"])
+@auth_router.post("/auth/logout", tags=["Auth"])
 async def logout(response: Response, user_session: str | None = Cookie(None)):
     if user_session:
         await redis_client.delete(f"session:{user_session}")
@@ -176,6 +176,6 @@ async def logout(response: Response, user_session: str | None = Cookie(None)):
     return {"status": "ok", "message": "Successfuly logout"}
 
 
-@auth_router.get("/api/auth/me")
+@auth_router.get("/auth/me")
 async def auth_me(admin=Depends(get_current_user)):
     return {"authenticated": True}
