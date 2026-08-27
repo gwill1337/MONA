@@ -1,0 +1,201 @@
+services:
+  # ─── PostgreSQL ─────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: mona-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-mydb}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Uncomment only if you need psql access from the host:
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-myuser} -d ${POSTGRES_DB:-mydb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mona
+
+  # ─── Redis (celery broker + sessions/limiter storage) ──────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: mona-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mona
+
+  # ─── FastAPI ─────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.fastapi
+    image: mona-fastapi:local
+    container_name: mona-fastapi
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      UV_NO_CACHE: "1"
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-mydb}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:30081"]}
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-admin}
+      ADMIN_PASSWORDS: ${ADMIN_PASSWORDS:?set ADMIN_PASSWORDS in .env}
+      USER_USERNAMES: ${USER_USERNAMES:-}
+      USER_PASSWORDS: ${USER_PASSWORDS:-}
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn mona_core.main:app --host 0.0.0.0 --port 8000"
+    ports:
+      - "30080:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - mona
+
+  # ─── Celery worker (metrics collection + ML training/inference) ───────
+  celery-worker:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.celery
+    image: mona-celery:local
+    container_name: mona-celery-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-mydb}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379
+      PROMETHEUS_URL: http://prometheus:9090
+      # Comma-separated jobName:host pairs for physical PCs, e.g. "pc-test:10.0.0.8"
+      # Leave empty and manage devices via the Admin panel instead, if you prefer.
+      EXPORTERS: ${EXPORTERS:-}
+    command: celery -A mona_core.celery_conf worker --loglevel=info
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A mona_core.celery_conf inspect ping -d celery@$$HOSTNAME || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    networks:
+      - mona
+
+  # ─── Celery beat (schedules collect_and_save + detect_anomalies) ──────
+  celery-beat:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.celery
+    image: mona-celery:local
+    container_name: mona-celery-beat
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-mydb}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      REDIS_URL: redis://redis:6379
+    command: celery -A mona_core.celery_conf beat --loglevel=info -s /tmp/celerybeat-schedule
+    volumes:
+      - celerybeat-tmp:/tmp
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /tmp/celerybeat-schedule"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - mona
+
+  # ─── React frontend ─────────────────────────────────────────────────
+  react:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.react
+    image: mona-react:local
+    container_name: mona-react
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "30081:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run/nginx
+    networks:
+      - mona
+
+  # ─── Prometheus — MONA's OWN product monitoring (physical PCs) ────────
+  # This is NOT cluster/infra monitoring — there is no Grafana, Loki,
+  # Alertmanager or kube-prometheus-stack equivalent here. Those exist
+  # only in the Helm/Terraform deployment for observing the k8s cluster
+  # itself. This Prometheus instance scrapes the monitored devices via
+  # node-exporter, same as the "Prometheus(Monitoring devices)" in the
+  # k8s setup — it's core product functionality, not infra tooling.
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: mona-prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "30391:9090"
+    depends_on:
+      - api
+    networks:
+      - mona
+
+volumes:
+  pgdata:
+  redisdata:
+  prometheus-data:
+  celerybeat-tmp:
+
+networks:
+  mona:
+    driver: bridge

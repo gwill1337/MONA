@@ -1,0 +1,73 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mona-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      POSTGRES_DB: ${POSTGRES_DB:-mydb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-myuser} -d ${POSTGRES_DB:-mydb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: mona-redis-dev
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: mona-fastapi-dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+      POSTGRES_DB: ${POSTGRES_DB:-mydb}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: '["http://localhost:30080","http://localhost:30081"]'
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-admin}
+      ADMIN_PASSWORDS: ${ADMIN_PASSWORDS:-admin123}
+      USER_USERNAMES: ${USER_USERNAMES:-}
+      USER_PASSWORDS: ${USER_PASSWORDS:-}
+    ports:
+      - "30080:8000"
+    volumes:
+      - .:/app
+      - api_venv:/app/.venv
+    working_dir: /app
+    command: >
+      sh -c "uv run alembic upgrade head &&
+             uv run uvicorn mona_core.main:app --host 0.0.0.0 --port 8000 --reload"
+
+volumes:
+  pgdata:
+  redisdata:
+  api_venv:
