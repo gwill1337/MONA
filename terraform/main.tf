@@ -20,17 +20,6 @@ terraform {
   }
 }
 
-# ─── locals ───────────────────────────────────────────────────────────────
-# locals {
-#   postgres_env = {
-#     "POSTGRES_USER"     = var.postgres_user
-#     "POSTGRES_PASSWORD" = random_password.postgres_password.result
-#     "POSTGRES_DB"       = var.postgres_db
-#     "POSTGRES_HOST"     = "postgres"
-#     "POSTGRES_PORT"     = "5432"
-#   }
-# }
-
 # ─── providers ───────────────────────────────────────────────────────────────
 
 provider "kind" {}
@@ -143,26 +132,7 @@ resource "helm_release" "mona_app" {
 
   values = [
     file("${path.module}/../mona-chart/values.yaml"),
-    # file("${path.module}/../mona-chart/values-prod.yaml"),
   ]
-
-  # dynamic "set_sensitive" {
-  #   for_each = local.postgres_env
-  #   iterator = env
-  #   content {
-  #     name  = "fastapi.env.${env.key}"
-  #     value = env.value
-  #   }
-  # }
-
-  # dynamic "set_sensitive" {
-  #   for_each = local.postgres_env
-  #   iterator = env
-  #   content {
-  #     name  = "celeryWorker.env.${env.key}"
-  #     value = env.value
-  #   }
-  # }
 
   set {
     name  = "postgres.auth.user"
@@ -211,7 +181,6 @@ resource "helm_release" "mona_app" {
     value = var.grafana_admin_password
   }
 
-  # Ждем и Loki, И успешную загрузку Docker-образов в Kind!
   depends_on = [
     helm_release.loki_stack,
     null_resource.kind_load_images

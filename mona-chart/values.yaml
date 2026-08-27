@@ -358,7 +358,6 @@ kube-prometheus-stack:
       type: NodePort
       nodePort: 30091
     prometheusSpec:
-      # Отключаем привязку к helm-релизу
       serviceMonitorSelectorNilUsesHelmValues: false
       serviceMonitorSelector: {}
   # External node exporter for monitoring physical PC metrics.

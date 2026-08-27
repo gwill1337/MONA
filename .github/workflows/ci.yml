@@ -132,9 +132,9 @@ jobs:
 
       - name: Build Docker images
         run: |
-          docker build -f docker/dockerfile.celery -t local/celery:test .
-          docker build -f docker/dockerfile.fastapi -t local/fastapi:test .
-          docker build -f docker/dockerfile.react -t local/react:test .
+          docker build -f docker/Dockerfile.celery -t local/celery:test .
+          docker build -f docker/Dockerfile.fastapi -t local/fastapi:test .
+          docker build -f docker/Dockerfile.react -t local/react:test .
 
       - name: Scan FastAPI image with Trivy
         uses: aquasecurity/trivy-action@master
