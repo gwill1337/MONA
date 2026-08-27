@@ -8,8 +8,8 @@ export default function ProtectedRoute({children}:{children:React.ReactNode}){
     const location = useLocation();
 
     useEffect(() => {
-        apiFetch("/api/v1/auth/me")
-        .then(res => setOk(res.ok))
+        apiFetch("/auth/me")
+        .then(() => setOk(true))
         .catch(() => setOk(false))
         .finally(() => setLoading(false));
     }, []);
