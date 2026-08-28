@@ -9,7 +9,7 @@ RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local /usr/local
 
-RUN pip install --no-cache-dir --upgrade setuptools>=78.1.1 msgpack>=1.2.1
+RUN pip install --no-cache-dir --upgrade "setuptools>=78.1.1" "msgpack>=1.2.1"
 
 RUN addgroup --system --gid 10001 app && adduser --system --uid 10001 --ingroup app app
 COPY . /app
