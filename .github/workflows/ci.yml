@@ -144,6 +144,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
+          skip-files: '**/pip/_vendor/bom.cdx.json'
       
       - name: Scan Celery image with Trivy
         uses: aquasecurity/trivy-action@master
@@ -153,6 +154,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: 'CRITICAL,HIGH'
+          skip-files: '**/pip/_vendor/bom.cdx.json'
       
       - name: Scan React image with Trivy
         uses: aquasecurity/trivy-action@master
