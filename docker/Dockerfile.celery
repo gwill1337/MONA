@@ -1,4 +1,9 @@
 FROM python:3.13 AS builder
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY docker/requirements_celery.txt .
 RUN pip install --no-cache-dir -r requirements_celery.txt
 
