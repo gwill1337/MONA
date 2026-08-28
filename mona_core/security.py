@@ -47,7 +47,7 @@ async def remove_all_sessions(user_id: int) -> None:
     key = _user_sessions_key(user_id)
     session_ids = await redis_client.smembers(key)
     if session_ids:
-        await redis_client.delete(*[f"session:{sid}" for sid in session_ids])
+        await redis_client.delete(*[f"session:{sid}" for sid in session_ids])  # type: ignore[str-bytes-safe]
     await redis_client.delete(key)
 
 
