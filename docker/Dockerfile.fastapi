@@ -1,10 +1,12 @@
 FROM python:3.13 AS builder
 WORKDIR /app
 COPY docker/requirements_fastapi.txt .
-RUN pip install --no-cache-dir -r requirements_fastapi.txt
+RUN pip install --no-cache-dir -r requirements_fastapi.txt \
+    && pip install --no-cache-dir --upgrade setuptools>=78.1.1 msgpack>=1.2.1
 
 FROM python:3.13-slim
-# RUN addgroup --system app && adduser --system --ingroup app app
+RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+
 RUN addgroup --system --gid 10001 app && adduser --system --uid 10001 --ingroup app app
 COPY --from=builder /usr/local /usr/local
 COPY . /app
