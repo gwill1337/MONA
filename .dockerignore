@@ -52,6 +52,3 @@ kube_prom_matches.txt
 kube_prom_values.txt
 loki_stack_matches.txt
 loki_stack_values.txt
-
-uv.lock
-uv.toml
