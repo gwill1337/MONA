@@ -40,6 +40,11 @@ uv run pre-commit run --hook-stage pre-push --all-files
 uv run pytest tests/
 ```
 
+## MONA's dev build
+For fust testing and preview use `docker-compose.dev.yml` with `Dockerfile.dev` and `.env.dev`
+```bash
+docker compose -p mona-dev --env-file dev/.env.dev -f dev/docker-compose.dev.yml up -d --build
+```
 
 ## Workflow & Branching
 ### 1. Fork or Create a Branch

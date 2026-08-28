@@ -1,0 +1,269 @@
+# services:
+#   postgres:
+#     image: postgres:16-alpine
+#     container_name: mona-postgres-dev
+#     restart: unless-stopped
+#     env_file:
+#       - .env.dev
+#     environment:
+#       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env.dev}
+#       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.dev}
+#       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env.dev}
+#     ports:
+#       - "5432:5432"
+#     volumes:
+#       - pgdata:/var/lib/postgresql/data
+#     healthcheck:
+#       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?set POSTGRES_USER in .env.dev} -d ${POSTGRES_DB:?set POSTGRES_DB in .env.dev}"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 10
+
+#   redis:
+#     image: redis:7-alpine
+#     container_name: mona-redis-dev
+#     restart: unless-stopped
+#     command: ["redis-server", "--appendonly", "yes"]
+#     ports:
+#       - "6379:6379"
+#     volumes:
+#       - redisdata:/data
+#     healthcheck:
+#       test: ["CMD", "redis-cli", "ping"]
+#       interval: 5s
+#       timeout: 5s
+#       retries: 10
+
+#   api:
+#     build:
+#       context: ..
+#       dockerfile: dev/Dockerfile.dev.fastapi
+#     container_name: mona-fastapi-dev
+#     restart: unless-stopped
+#     depends_on:
+#       postgres:
+#         condition: service_healthy
+#       redis:
+#         condition: service_healthy
+#     env_file:
+#       - .env.dev
+#     environment:
+#       # POSTGRES_USER: ${POSTGRES_USER:-myuser}
+#       # POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-1234}
+#       # POSTGRES_DB: ${POSTGRES_DB:-mydb}
+#       POSTGRES_HOST: postgres
+#       POSTGRES_PORT: 5432
+#       REDIS_URL: redis://redis:6379
+#       CORS_ORIGINS: '["http://localhost:30080","http://localhost:30081", "http://localhost:5173"]'
+#       ADMIN_USERNAMES: ${ADMIN_USERNAMES:-admin}
+#       ADMIN_PASSWORDS: ${ADMIN_PASSWORDS:-admin123}
+#       USER_USERNAMES: ${USER_USERNAMES:-}
+#       USER_PASSWORDS: ${USER_PASSWORDS:-}
+#     ports:
+#       - "30080:8000"
+#     volumes:
+#       - ..:/app
+#       - api_venv:/app/.venv
+#     working_dir: /app
+#     command: >
+#       sh -c "uv run alembic upgrade head &&
+#              uv run uvicorn mona_core.main:app --host 0.0.0.0 --port 8000 --reload"
+
+#   react:
+#     build:
+#       context: ..
+#       dockerfile: dev/Dockerfile.dev.react
+#     container_name: mona-react-dev
+#     restart: unless-stopped
+#     depends_on:
+#       - api
+#     volumes:
+#       - ../frontend:/app
+#       - react_node_modules:/app/node_modules
+#     ports:
+#       - "5173:5173"
+#     environment:
+#       CHOKIDAR_USEPOLLING: "true"
+
+# volumes:
+#   pgdata:
+#     name: mona_pgdata_dev
+#   redisdata:
+#     name: mona_redisdata_dev
+#   api_venv:
+#     name: mona_api_venv_dev
+#   react_node_modules:
+#     name: mona_react_node_modules_dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mona-postgres-dev
+    restart: unless-stopped
+    env_file:
+      - .env.dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env.dev}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.dev}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env.dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?set POSTGRES_USER in .env.dev} -d ${POSTGRES_DB:?set POSTGRES_DB in .env.dev}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: mona-redis-dev
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile.dev.fastapi
+    image: mona-api-dev:local
+    container_name: mona-fastapi-dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.dev
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379
+      CORS_ORIGINS: '["http://localhost:30080","http://localhost:30081","http://localhost:5173"]'
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-admin}
+      ADMIN_PASSWORDS: ${ADMIN_PASSWORDS:-admin123}
+      USER_USERNAMES: ${USER_USERNAMES:-}
+      USER_PASSWORDS: ${USER_PASSWORDS:-}
+    ports:
+      - "30080:8000"
+    volumes:
+      - ..:/app
+      - api_venv:/app/.venv
+    working_dir: /app
+    command: >
+      sh -c "uv run alembic upgrade head &&
+             uv run uvicorn mona_core.main:app --host 0.0.0.0 --port 8000 --reload"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  celery-worker:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile.dev.fastapi
+    image: mona-api-dev:local
+    container_name: mona-celery-worker-dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    env_file:
+      - .env.dev
+    environment:
+      PYTHONPATH: /app/mona_core
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379
+      PROMETHEUS_URL: http://prometheus:9090
+      EXPORTERS: ${EXPORTERS:-}
+    volumes:
+      - ..:/app
+      - api_venv:/app/.venv
+    working_dir: /app
+    command: uv run celery -A celery_conf worker --loglevel=info
+
+  celery-beat:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile.dev.fastapi
+    image: mona-api-dev:local
+    container_name: mona-celery-beat-dev
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - .env.dev
+    environment:
+      PYTHONPATH: /app/mona_core
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - ..:/app
+      - api_venv:/app/.venv
+    working_dir: /app
+    command: uv run celery -A celery_conf beat --loglevel=info -s /tmp/celerybeat-schedule
+
+  react:
+    build:
+      context: ..
+      dockerfile: dev/Dockerfile.dev.react
+    container_name: mona-react-dev
+    restart: unless-stopped
+    depends_on:
+      - api
+    volumes:
+      - ../frontend:/app
+      - react_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: mona-prometheus-dev
+    restart: unless-stopped
+    volumes:
+      - ../prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    ports:
+      - "30391:9090"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+    name: mona_pgdata_dev
+  redisdata:
+    name: mona_redisdata_dev
+  api_venv:
+    name: mona_api_venv_dev
+  react_node_modules:
+    name: mona_react_node_modules_dev
+  prometheus-data:
+    name: mona_prometheus_data_dev

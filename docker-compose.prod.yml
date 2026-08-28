@@ -5,16 +5,16 @@ services:
     container_name: mona-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-mydb}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
     # Uncomment only if you need psql access from the host:
     # ports:
     #   - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-myuser} -d ${POSTGRES_DB:-mydb}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?set POSTGRES_USER in .env} -d ${POSTGRES_DB:?set POSTGRES_DB in .env}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -52,11 +52,11 @@ services:
         condition: service_healthy
     environment:
       UV_NO_CACHE: "1"
-      POSTGRES_USER: ${POSTGRES_USER:-myuser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      POSTGRES_DB: ${POSTGRES_DB:-mydb}
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
+      # POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      # POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      # POSTGRES_DB: ${POSTGRES_DB:-mydb}
+      # POSTGRES_HOST: postgres
+      # POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:30081"]}
       ADMIN_USERNAMES: ${ADMIN_USERNAMES:-admin}
@@ -192,7 +192,9 @@ services:
 
 volumes:
   pgdata:
+    name: mona_pgdata_prod
   redisdata:
+    name: mona_redisdata_prod
   prometheus-data:
   celerybeat-tmp:
 
