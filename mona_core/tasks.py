@@ -2,12 +2,11 @@ import os
 from datetime import UTC, datetime, timedelta
 
 import requests
-
-# import pickle
 import skops.io as sio
 from sqlalchemy import select
 
 from mona_core.celery_conf import app
+from mona_core.config import settings
 from mona_core.db import Device, Metric, SessionLocal, TrainedModel
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
@@ -130,7 +129,7 @@ def train_model_task(hours: float, note: str):
 
         model = IsolationForest(
             n_estimators=200,
-            contamination=0.03,
+            contamination=settings.contamination,
             random_state=42,
         )
         model.fit(X_scaled)

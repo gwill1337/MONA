@@ -1,16 +1,34 @@
 # CHANGELOG
 
 All notable changes to this project will be documented in this file.
-## [v0.7.0] - 2026-07-29 - API update
+## [v0.7.0] - 2026-08-28 - Major update
 ### Added
-- Added api versioning except probes, prometheus endpoints.
+- backend: Added API versioning except probes and prometheus endpoints.
+- backend: Added return type annotations to API endpoints.
+- backend: Added Pydantic schemes in response model for each enpoints except probes and prometheus endpoints.
+- backend: Added formatter for HTTPExceptions like [MessageResponse]()
+- backend: Added manual CRUD user for admins.
+- backend: Added pagination for devices[GET] endpoint. 
+- backend: Added redis to health probe.
+- backend: Added CRUD for users.
+- backend: Added `docker-compose.dev.yml` for development.
+- backend: Added `docker-compose.prod.yml` as second way to setup MONA.
+- frontend: Added page `userboard`.
+- frontend: Added config with `API_URL` and `API_VERSION`.
+- frontend: Added formatter for `status codes` and `error` into `apiFetch`.
+
+### Changed
+- frontend: Split Dashboard.tsx and DeviceAdmin.tsx to components.
+- frontend: Split endpoints to folder routes on backend.
+- frontend: Moved to axios from fetch.
+- frontend: Moved API versioning to custom `apiFetch` on frontend.
 
 ## [v0.6.0] - 2026-07-28 - Security update
 ### Added
-- Added limiter for login
-- Added config for .env
-- Added security checks into CI pipeline
-- Added tests for limiter
+- Added limiter for login.
+- Added config via pydantic-settings.
+- Added security checks into CI pipeline.
+- Added tests for limiter.
 
 ### Changed
 - Changed docker images from docker hub to local

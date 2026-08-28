@@ -1,14 +1,17 @@
+from celery import Celery
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from redis.asyncio import from_url
 
 
 class Settings(BaseSettings):
     # api
-    cors_origins: list[str] = ["http://localhost:30081"]
+    cors_origins: list[str] = ["http://localhost:30081", "http://localhost:5173"]
 
     # Security
     max_attempts: int = 5
     lockout_seconds: int = 300
+    session_ttl: int = 43200
 
     # ML
     window: int = 500
@@ -38,7 +41,13 @@ class Settings(BaseSettings):
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
 
 settings = Settings()
+
+redis_url = settings.redis_url
+redis_client = from_url(redis_url, decode_responses=True)
+celery_client = Celery("mona", broker=redis_url, backend=redis_url)

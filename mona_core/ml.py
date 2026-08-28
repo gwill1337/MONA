@@ -25,11 +25,6 @@ from mona_core.celery_conf import app
 from mona_core.config import settings
 from mona_core.db import Anomaly, Metric, SessionLocal, TrainedModel
 
-# WINDOW = 500
-# MIN_POINTS = 30
-# CONTAMINATION = 0.05
-# SCORE_THRESHOLD = -0.05
-
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
 
@@ -101,7 +96,6 @@ def _load_user_model(db):
         return None, None
     untrusted_types = sio.get_untrusted_types(data=record.model_data)
     model, scaler = sio.loads(record.model_data, trusted=untrusted_types)
-    # model, scaler = sio.loads(record.model_data, trusted=True) # type: ignore
     return model, scaler
 
 

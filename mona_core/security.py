@@ -2,18 +2,19 @@ import json
 import os
 import secrets
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
-from pydantic import BaseModel
-from redis.asyncio import from_url
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from mona_core.config import settings
+from mona_core.config import redis_client, settings
 from mona_core.db import SessionLocal, Users
-
-# redis_url = os.getenv("REDIS_URL", "redis://redis:6379")
-redis_url = settings.redis_url
-redis_client = from_url(redis_url, decode_responses=True)
+from mona_core.schemas import (
+    LoginOut,
+    LoginRequest,
+    MeOut,
+    MessageResponse,
+    UserSession,
+)
 
 
 # ─── helpers ────────────────────────────────────────────────────────────────
@@ -25,9 +26,29 @@ def get_db():
         db.close()
 
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
+# ─── Sessions ───────────────────────────────────────────────────────────────
+
+
+def _user_sessions_key(user_id: int) -> str:
+    return f"user_sessions:{user_id}"
+
+
+async def register_sesion(user_id: int, session_id: str) -> None:
+    key = _user_sessions_key(user_id)
+    await redis_client.sadd(key, session_id)
+    await redis_client.expire(key, settings.session_ttl)
+
+
+async def unregister_session(user_id: int, session_id: str) -> None:
+    await redis_client.srem(_user_sessions_key(user_id), session_id)
+
+
+async def remove_all_sessions(user_id: int) -> None:
+    key = _user_sessions_key(user_id)
+    session_ids = await redis_client.smembers(key)
+    if session_ids:
+        await redis_client.delete(*[f"session:{sid}" for sid in session_ids])
+    await redis_client.delete(key)
 
 
 # ─── Startup ────────────────────────────────────────────────────────────────
@@ -61,7 +82,7 @@ def _seed_role(
             db.add(account)
 
 
-def seed_admin():
+def seed_admin() -> None:
     admin_usernames, admin_passwords = _read_pair_list(
         "ADMIN_USERNAMES", "ADMIN_PASSWORDS"
     )
@@ -80,7 +101,7 @@ def seed_admin():
             print(f"Error: {e}")
 
 
-# limiter
+# ─── limiter ────────────────────────────────────────────────────────────────
 async def check_rate_limit(
     key: str,
     max_attempts: int = settings.max_attempts,
@@ -103,39 +124,48 @@ async def reset_rate_limit(key: str):
     await redis_client.delete(f"login_attempts:{key}")
 
 
-# ─── Auth ────────────────────────────────────────────────────────────────
-async def get_current_user(user_session: str | None = Cookie(None)) -> dict:
+# ─── Auth ───────────────────────────────────────────────────────────────────
+async def get_current_user(user_session: str | None = Cookie(None)) -> UserSession:
     if not user_session:
-        raise HTTPException(status_code=401, detail="You are not auth(Cokie not found)")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="You are not auth(Cokie not found)",
+        )
 
     raw = await redis_client.get(f"session:{user_session}")
     if not raw:
-        raise HTTPException(status_code=401, detail="Session expired or not valid")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired or not valid",
+        )
 
-    return json.loads(raw)
+    data = json.loads(raw)
+    return UserSession.model_validate(data)
 
 
-async def require_admin(user: dict = Depends(get_current_user)) -> dict:
-    if user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin privileges required")
+async def require_admin(user: UserSession = Depends(get_current_user)) -> UserSession:
+    if user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin privileges required"
+        )
     return user
 
 
 user_router = APIRouter(dependencies=[Depends(get_current_user)])
 admin_router = APIRouter(dependencies=[Depends(require_admin)])
 
-# ─── Auth endpoints ───────────────────────────────────────────────────────────
+# ─── Auth endpoints ─────────────────────────────────────────────────────────
 auth_router = APIRouter(tags=["Auth"])
 
 
 # ─── login & logout ─────────────────────────────────────────────────────────
-@auth_router.post("/auth/login", tags=["Auth"])
+@auth_router.post("/auth/login", tags=["Auth"], response_model=LoginOut)
 async def login(
     body: LoginRequest,
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
-):
+) -> LoginOut:
     ip = request.client.host if request.client else "127.0.0.1"
 
     await check_rate_limit(f"ip:{ip}")
@@ -145,7 +175,10 @@ async def login(
     user = db.execute(stmt).scalar_one_or_none()
 
     if not user or not user.check_password(body.password):
-        raise HTTPException(status_code=401, detail="Invalid username or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
 
     await reset_rate_limit(f"ip:{ip}")
     await reset_rate_limit(f"user:{body.username}")
@@ -154,28 +187,37 @@ async def login(
     session_data = json.dumps(
         {"id": user.id, "username": user.username, "role": user.role}
     )
-    await redis_client.set(f"session:{session_id}", session_data, ex=43200)
+    await redis_client.set(
+        f"session:{session_id}", session_data, ex=settings.session_ttl
+    )
+    await register_sesion(user.id, session_id)
 
     response.set_cookie(
         key="user_session",
         value=session_id,
         httponly=True,
-        secure=False,
+        secure=True,
         samesite="lax",
         max_age=43200,
     )
-    return {"status": "ok", "message": "Successfully login", "role": user.role}
+    return LoginOut(status="ok", message="Successfully login", role=user.role)
 
 
-@auth_router.post("/auth/logout", tags=["Auth"])
-async def logout(response: Response, user_session: str | None = Cookie(None)):
+@auth_router.post("/auth/logout", tags=["Auth"], response_model=MessageResponse)
+async def logout(
+    response: Response, user_session: str | None = Cookie(None)
+) -> MessageResponse:
     if user_session:
+        raw = await redis_client.get(f"sesion:{user_session}")
+        if raw:
+            data = json.loads(raw)
+            await unregister_session(data["id"], user_session)
         await redis_client.delete(f"session:{user_session}")
 
     response.delete_cookie("user_session")
-    return {"status": "ok", "message": "Successfuly logout"}
+    return MessageResponse(message="logged out")
 
 
-@auth_router.get("/auth/me")
-async def auth_me(admin=Depends(get_current_user)):
-    return {"authenticated": True}
+@auth_router.get("/auth/me", response_model=MeOut)
+async def auth_me(admin=Depends(get_current_user)) -> MeOut:
+    return MeOut(authenticated=True)
