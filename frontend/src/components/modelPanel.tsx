@@ -120,16 +120,10 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
                 setPhase({ kind: "error", text: d.message ?? "Unknown error from server" });
             }
         } catch (e: any) {
-            if (e.response?.status === 403) {
+            if (e.status === 403) {
                 setPhase({ kind: "error", text: "Training the model requires admin privileges" });
             } else {
-                const d = e.response?.data ?? {};
-                const detail = d.detail;
-                const message =
-                    typeof detail === "string"
-                        ? detail
-                        : detail?.message ?? e.message ?? "Unknown error";
-                setPhase({ kind: "error", text: `Network error: ${message}` });
+                setPhase({ kind: "error", text: `error: ${e.message}`})
             }
 
         }

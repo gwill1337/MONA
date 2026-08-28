@@ -35,7 +35,7 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
         }
         return true;
     };
-    
+
     const handleUserDelete = async () => {
         setLoading(true);
         setDeleteError("");
@@ -60,9 +60,10 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
 
             }
             const message =
-                typeof d.detail === "string"
-                    ? d.detail
-                    : d.detail?.message ?? e.message ?? "Unknown error";
+                d.message ??
+                (typeof d.detail === "string" ? d.detail : d.detail?.message) ??
+                e.message ??
+                "Unknown error";
             setDeleteError(message);
         } finally {
             setLoading(false);
@@ -96,9 +97,10 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
                 }
             }
             const message =
-                typeof d.detail === "string"
-                    ? d.detail
-                    : d.detail?.message ?? e.message ?? "Unknown error";
+                d.message ??
+                (typeof d.detail === "string" ? d.detail : d.detail?.message) ??
+                e.message ??
+                "Unknown error";
             setRoleError(message);
         } finally {
             setLoading(false);
@@ -107,7 +109,7 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
 
     const handleUserChangePassword = async () => {
         if (!validate_password()) return;
-        
+
         setLoading(true);
         setPasswordError("");
         try {
@@ -134,9 +136,10 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
                 }
             }
             const message =
-                typeof d.detail === "string"
-                    ? d.detail
-                    : d.detail?.message ?? e.message ?? "Unknown error";
+                d.message ??
+                (typeof d.detail === "string" ? d.detail : d.detail?.message) ??
+                e.message ??
+                "Unknown error";
             setPasswordError(message);
         } finally {
             setLoading(false);

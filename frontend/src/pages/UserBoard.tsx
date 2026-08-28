@@ -22,16 +22,10 @@ export default function UserBoard() {
             setUsers(data);
             setError("");
         } catch (e: any) {
-            if (e.response?.status === 403) {
-                setError("This panel requires admin privileges");
+            if (e.status === 403) {
+                setError("This page requires admin privileges");
             } else {
-                const d = e.response?.data ?? {};
-                const detail = d.detail;
-                const message =
-                    typeof detail === "string"
-                        ? detail
-                        : detail?.message ?? e.message ?? "Unknown error";
-                setError(message);
+                setError(e.message);
             }
         } finally {
             setLoading(false);
@@ -67,9 +61,9 @@ export default function UserBoard() {
                         </button>
                         <div>
                             <div className="flex items-center gap-2.5 mb-2">
-                                <button onClick={() => navigate("/")} className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                                <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
                                     <Cpu size={22} />
-                                </button>
+                                </div>
                                 <span className="text-xs font-semibold text-cyan-400/80 uppercase tracking-[0.2em]">
                                     Users control
                                 </span>
