@@ -13,6 +13,8 @@ os.environ["REDIS_URL"] = "redis://localhost:6379/15"
 from mona_core import db as db_module  # noqa: E402
 from mona_core import main as main_module  # noqa: E402
 from mona_core import security as security_module  # noqa: E402
+from mona_core.routers import health as health_module # noqa: E402
+from mona_core.config import celery_client # noqa: E402
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -74,36 +76,58 @@ def mock_celery(monkeypatch):
         state["async_result_calls"].append(task_id)
         return state["async_result_return"]
 
-    monkeypatch.setattr(main_module.celery_client, "send_task", fake_send_task)
-    monkeypatch.setattr(main_module.celery_client, "AsyncResult", fake_async_result)
+    monkeypatch.setattr(celery_client, "send_task", fake_send_task)
+    monkeypatch.setattr(celery_client, "AsyncResult", fake_async_result)
 
     return state
 
 
 @pytest.fixture()
 def mock_user_auth():
+    from mona_core.schemas import UserSession
     from mona_core.security import get_current_user
-
-    main_module.app.dependency_overrides[get_current_user] = lambda: {
-        "id": 1,
-        "username": "mock_user_123",
-        "role": "user",
-    }
-    yield
+    user_session = UserSession(
+        id=1,
+        username="mock_user_123",
+        role="user",
+    )
+    main_module.app.dependency_overrides[get_current_user] = lambda: user_session
+    yield user_session
     main_module.app.dependency_overrides.clear()
 
 
 @pytest.fixture()
 def mock_admin_auth():
+    from mona_core.schemas import UserSession
     from mona_core.security import get_current_user
-
-    main_module.app.dependency_overrides[get_current_user] = lambda: {
-        "id": 2,
-        "username": "mock_admin_123",
-        "role": "admin",
-    }
-    yield
+    admin_session = UserSession(
+        id=2,
+        username="mock_admin_123",
+        role="admin",
+    )
+    main_module.app.dependency_overrides[get_current_user] = lambda: admin_session
+    yield admin_session
     main_module.app.dependency_overrides.clear()
+
+@pytest.fixture()
+def make_user(db_session):
+    """Factory fixture: creates a Users row directly in the DB (bypassing the API).
+ 
+    Usage:
+        def test_x(self, make_user):
+            admin = make_user(username="alice", password="secret123", role="admin")
+    """
+    from mona_core.db import Users
+ 
+    def _make(username="testuser", password="testpass123", role="user"):
+        user = Users(username=username, role=role)
+        user.set_password(password)
+        db_session.add(user)
+        db_session.commit()
+        db_session.refresh(user)
+        return user
+ 
+    return _make
 
 
 class FakeRedis:
@@ -141,9 +165,43 @@ class FakeRedis:
         if key in self.storage:
             return 300
         return -2
+
+    async def ping(self):
+        return True
+
+    async def sadd(self, name, *values):
+        if name not in self.storage:
+            self.storage[name] = set()
+        elif not isinstance(self.storage[name], set):
+            self.storage[name] = set(self.storage[name])
+
+        added = 0
+        for val in values:
+            if val not in self.storage[name]:
+                self.storage[name].add(val)
+                added += 1
+        return added
+
+    async def srem(self, key, *values):
+        s = self.storage.get(key)
+        if not isinstance(s, set):
+            return 0
+        before = len(s)
+        s.difference_update(values)
+        return before - len(s)
+ 
+    async def smembers(self, key):
+        s = self.storage.get(key)
+        return set(s) if isinstance(s, set) else set()
+ 
+    async def scard(self, key):
+        s = self.storage.get(key)
+        return len(s) if isinstance(s, set) else 0
+
     
 @pytest.fixture()
 def mock_redis(monkeypatch):
     fake = FakeRedis()
     monkeypatch.setattr(security_module, "redis_client", fake)
+    monkeypatch.setattr(health_module, "redis_client", fake)
     return fake

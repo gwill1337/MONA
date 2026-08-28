@@ -264,3 +264,58 @@ class TestTrainModel:
 
         assert result["status"] == "error"
         assert "skops error" in result["message"]
+
+class TestTasksApi:
+    def test_train_model_submits_task(self, client, mock_celery, mock_admin_auth):
+        resp = client.post("/api/v1/train", params={"hours": 2.5, "note": "manual run"})
+
+        assert resp.status_code == 202
+        body = resp.json()
+        assert body["status"] == "accepted"
+        assert "task_id" in body
+
+        assert len(mock_celery["send_task_calls"]) == 1
+        call = mock_celery["send_task_calls"][0]
+        assert call["name"] == "tasks.train_model_task"
+        assert call["kwargs"] == {"hours": 2.5, "note": "manual run"}
+
+    def test_train_model_defaults(self, client, mock_celery, mock_admin_auth):
+        resp = client.post("/api/v1/train")
+        assert resp.status_code == 202
+        assert len(mock_celery["send_task_calls"]) == 1
+        call = mock_celery["send_task_calls"][0]
+        assert call["name"] == "tasks.train_model_task"
+
+    def test_task_status_pending(self, client, mock_celery, mock_user_auth):
+        resp = client.get("/api/v1/task-status/some-task-id")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["task_id"] == "some-task-id"
+        assert body["state"] == "PENDING"
+        assert body["result"] is None
+
+        assert mock_celery["async_result_calls"] == ["some-task-id"]
+
+    def test_task_status_success(self, client, mock_celery, mock_user_auth):
+        fake_result_class = type(mock_celery["async_result_return"])
+        mock_celery["async_result_return"] = fake_result_class(
+            state="SUCCESS", result={"accuracy": 0.97}
+        )
+
+        resp = client.get("/api/v1/task-status/finished-task")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["state"] == "SUCCESS"
+        assert body["result"] == {"accuracy": 0.97}
+
+    def test_task_status_failure(self, client, mock_celery, mock_user_auth):
+        fake_result_class = type(mock_celery["async_result_return"])
+        mock_celery["async_result_return"] = fake_result_class(
+            state="FAILURE", result="boom: division by zero"
+        )
+
+        resp = client.get("/api/v1/task-status/broken-task")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["state"] == "FAILURE"
+        assert body["result"] == "boom: division by zero"
