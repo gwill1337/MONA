@@ -1,8 +1,8 @@
-FROM python:3.13.7 AS builder
+FROM python:3.13 AS builder
 COPY docker/requirements_celery.txt .
 RUN pip install --no-cache-dir -r requirements_celery.txt
 
-FROM python:3.13.7-slim
+FROM python:3.13-slim
 # RUN addgroup --system app && adduser --system --ingroup app app
 RUN addgroup --system --gid 10001 app && adduser --system --uid 10001 --ingroup app app
 COPY --from=builder /usr/local /usr/local
