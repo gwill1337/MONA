@@ -132,7 +132,7 @@ and can be opened via psql:
 kubectl exec -it statefulset/postgres-statefulset -n mona -- psql -U myuser -d mydb
 #              ⬆ pod name                          ⬆ namespace    ⬆ Username ⬆ DB name
 ```
-
+![userboard](https://github.com/gwill1337/Images/blob/main/MONA/userboard.gif)
 ## Authentication & Authorization
 MONA uses a stateful, cookie-based authentication system backed by Redis to secure the admin panel and core API endpoints.
 
