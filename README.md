@@ -63,30 +63,38 @@ docker compose -p mona-prod --env-file .env -f docker-compose.prod.yml up -d --b
 ### API:
 *P.S. All endpoint require authentification except prometheus and probes.*
 * Swagger: `localhost:30080/docs`
-* Metrics[Get]: `localhost:30080/api/v1/db-metrics`
+
+#### Users:
 * Users[Get]: `localhost:30080/api/v1/users`
 * User[Post]: `localhost:30080/api/v1/user`
 * User[Delete]: `localhost:30080/api/v1/user/{user_id}`
-* UserChangePassword[Patch]: `localhost:30080/api/v1/user`
+* UserChangePassword[Patch]: `localhost:30080/api/v1/user/change-password`
 * UserChangeRole[Patch]: `localhost:30080/api/v1/user/{user_id}/role`
+
+#### Devices:
 * Devices[Get]: `localhost:30080/api/v1/devices`
 * Devices[Post]: `localhost:30080/api/v1/devices`
 * Devices[Delete]: `localhost:30080/api/v1/devices/{device_id}`
-* Anomalies[Get]: `localhost:30080/api/v1/anomalies`
+
+#### Model:
 * Model-info[Get]: `localhost:30080/api/v1/model-info`
 * Train[Post]: `localhost:30080/api/v1/train`
 * Model[Delete]: `localhost:30080/api/v1/model`
+
+#### Monitoring:
 * Dashboard[Get]: `localhost:30080/api/v1/dashboard`
 * TaskStatus[Get]: `localhost:30080/api/v1/task-status/{task_id}`
-
-#### Probes:
-* Liveness[Get]: `localhost:30080/health/live`
-* Readiness[Get]: `localhost:30080/health/ready`
+* Anomalies[Get]: `localhost:30080/api/v1/anomalies`
+* Metrics[Get]: `localhost:30080/api/v1/db-metrics`
 
 #### Authentication:
 * Login[Post]: `localhost:30080/api/v1/auth/login`
 * Logout[Post]: `localhost:30080/api/v1/auth/logout`
 * Check auth[Get]: `localhost:30080/api/v1/auth/me`
+
+#### Probes:
+* Liveness[Get]: `localhost:30080/health/live`
+* Readiness[Get]: `localhost:30080/health/ready`
 
 #### Prometheus Endpoints:
 * Metrics[Get]: `localhost:30080/metrics`

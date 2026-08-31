@@ -160,11 +160,12 @@ class TestRateLimiter:
             responses.append(resp)
 
         assert any(r.status_code == 429 for r in responses)
-        
+
         last_resp = responses[-1]
         assert last_resp.status_code == 429
 
-    def test_successful_login_resets_rate_limit(self, client, db_session, mock_redis):
+    @pytest.mark.asyncio
+    async def test_successful_login_resets_rate_limit(self, client, db_session, mock_redis):
         admin = Users(username="admin")
         admin.set_password("123456")
         db_session.add(admin)
@@ -176,7 +177,8 @@ class TestRateLimiter:
                 json={"username": "admin", "password": "wrong_password"}
             )
 
-        assert any("user:admin" in key or "ip:" in key for key in mock_redis.storage)
+        keys = await mock_redis.keys("login_attempts:*")
+        assert any("user:admin" in k or "ip:" in k for k in keys)
 
         resp = client.post(
             "/api/v1/auth/login",
@@ -184,10 +186,11 @@ class TestRateLimiter:
         )
         assert resp.status_code == 200
 
-        assert mock_redis.storage.get("user:admin") is None
+        assert await mock_redis.get("login_attempts:user:admin") is None
 
-    def test_rate_limit_per_user(self, client, db_session, mock_redis):
-        mock_redis.storage["login_attempts:user:target_user"] = 5
+    @pytest.mark.asyncio
+    async def test_rate_limit_per_user(self, client, db_session, mock_redis):
+        await mock_redis.set("login_attempts:user:target_user", 5)
 
         resp = client.post(
             "/api/v1/auth/login",

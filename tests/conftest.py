@@ -3,6 +3,7 @@ import tempfile
 
 import pytest
 from fastapi.testclient import TestClient
+from fakeredis import FakeAsyncRedis
 
 _tmp_dir = tempfile.mkdtemp()
 _TEST_DB_PATH = os.path.join(_tmp_dir, "test.db")
@@ -129,79 +130,9 @@ def make_user(db_session):
  
     return _make
 
-
-class FakeRedis:
-    def __init__(self):
-        self.storage = {}
-
-    async def set(self, key, value, ex=None):
-        self.storage[key] = value
-        return True
-
-    async def get(self, key):
-        return self.storage.get(key)
-
-    async def delete(self, key):
-        self.storage.pop(key, None)
-        return 1
-
-    async def incr(self, key):
-        val = self.storage.get(key, 0)
-        
-        if isinstance(val, (str, bytes)):
-            val = int(val)
-            
-        new_val = val + 1
-        self.storage[key] = new_val
-    
-        return new_val
-
-    async def expire(self, key, time):
-        if key in self.storage:
-            return True
-        return False
-
-    async def ttl(self, key):
-        if key in self.storage:
-            return 300
-        return -2
-
-    async def ping(self):
-        return True
-
-    async def sadd(self, name, *values):
-        if name not in self.storage:
-            self.storage[name] = set()
-        elif not isinstance(self.storage[name], set):
-            self.storage[name] = set(self.storage[name])
-
-        added = 0
-        for val in values:
-            if val not in self.storage[name]:
-                self.storage[name].add(val)
-                added += 1
-        return added
-
-    async def srem(self, key, *values):
-        s = self.storage.get(key)
-        if not isinstance(s, set):
-            return 0
-        before = len(s)
-        s.difference_update(values)
-        return before - len(s)
- 
-    async def smembers(self, key):
-        s = self.storage.get(key)
-        return set(s) if isinstance(s, set) else set()
- 
-    async def scard(self, key):
-        s = self.storage.get(key)
-        return len(s) if isinstance(s, set) else 0
-
-    
 @pytest.fixture()
 def mock_redis(monkeypatch):
-    fake = FakeRedis()
+    fake = FakeAsyncRedis(decode_responses=True)
     monkeypatch.setattr(security_module, "redis_client", fake)
     monkeypatch.setattr(health_module, "redis_client", fake)
     return fake
