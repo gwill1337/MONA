@@ -52,11 +52,11 @@ services:
         condition: service_healthy
     environment:
       UV_NO_CACHE: "1"
-      # POSTGRES_USER: ${POSTGRES_USER:-myuser}
-      # POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      # POSTGRES_DB: ${POSTGRES_DB:-mydb}
-      # POSTGRES_HOST: postgres
-      # POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-mydb}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
       REDIS_URL: redis://redis:6379
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:30081"]}
       ADMIN_USERNAMES: ${ADMIN_USERNAMES:-admin}
