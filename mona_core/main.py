@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from mona_core.config import settings
+from mona_core.logger import configure_logging
 from mona_core.security import (
     admin_router,
     auth_router,
@@ -17,6 +18,7 @@ from mona_core.security import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     seed_admin()
+    configure_logging()
     yield
 
 

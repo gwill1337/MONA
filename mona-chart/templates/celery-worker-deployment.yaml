@@ -68,7 +68,8 @@ spec:
           command:
             {{- toYaml .Values.celeryWorker.command | nindent 12 }}
           env:
-          
+            - name: LOG_LEVEL
+              value: {{ .Values.celeryWorker.env.LOG_LEVEL | quote}}
             - name: REDIS_URL
               value: {{ include "mona.redisUrl" . | quote }}
             - name: POSTGRES_USER

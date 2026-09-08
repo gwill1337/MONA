@@ -5,20 +5,14 @@ description = "toml for mona project"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "alembic>=1.18.5",
     "bcrypt>=5.0.0",
     "celery>=5.6.3",
-    "dotenv>=0.9.9",
-    "fastapi>=0.139.0",
-    "prometheus-fastapi-instrumentator>=8.0.2",
+    "httpx2>=2.12.0",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "redis>=8.1.0",
+    "sqlalchemy>=2.0.52",
     "psycopg2-binary>=2.9.12",
-    "pydantic-settings>=2.14.2",
-    "pyyaml>=6.0.1",
-    "redis>=8.0.1",
-    "requests>=2.34.2",
-    "skops>=0.14.0",
-    "sqlalchemy>=2.0.51",
-    "uvicorn>=0.51.0",
 ]
 
 [tool.ruff]
@@ -47,39 +41,45 @@ pythonpath = ["."]
 
 [dependency-groups]
 ci = [
-    "celery>=5.6.3",
     "fakeredis>=2.37.1",
     "fastapi>=0.139.0",
     "httpx>=0.28.1",
-    "httpx2>=2.5.0",
     "mypy>=2.2.0",
     "prometheus-fastapi-instrumentator>=8.0.2",
     "pydantic>=2.13.4",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.15.21",
-    "sqlalchemy>=2.0.51",
 ]
 dev = [
     "celery>=5.6.3",
     "fastapi>=0.139.0",
     "httpx>=0.28.1",
-    "httpx2>=2.5.0",
     "numpy>=2.5.1",
     "prometheus-fastapi-instrumentator>=8.0.2",
-    "psycopg2-binary>=2.9.12",
     "pydantic>=2.13.4",
     "pytest>=9.1.1",
     "pyyaml>=6.0.1",
-    "redis>=8.0.1",
-    "requests>=2.34.2",
     "ruff>=0.15.21",
     "scikit-learn>=1.9.0",
-    "sqlalchemy>=2.0.51",
     "uvicorn>=0.51.0",
-    "scikit-learn>=1.9.0",
     "checkov>=3.3.8",
     "pre-commit>=4.6.1",
     "fakeredis>=2.37.1",
     "pytest-asyncio>=1.4.0",
+    "mypy>=2.3.1",
+    "skops>=0.14.0",
+    "alembic>=1.19.1",
+]
+docker-fastapi = [
+    "alembic>=1.19.1",
+    "fastapi>=0.141.1",
+    "prometheus-fastapi-instrumentator>=8.1.0",
+    "uvicorn>=0.52.4",
+]
+worker = [
+    "numpy>=2.5.1",
+    "pyyaml>=6.0.1",
+    "scikit-learn>=1.9.0",
+    "skops>=0.14.0",
 ]

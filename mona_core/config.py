@@ -5,6 +5,9 @@ from redis.asyncio import from_url
 
 
 class Settings(BaseSettings):
+    # logger
+    log_level: str = "INFO"
+
     # api
     cors_origins: list[str] = ["http://localhost:30081", "http://localhost:5173"]
 

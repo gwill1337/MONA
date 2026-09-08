@@ -1,13 +1,18 @@
+import logging
 import os
 from datetime import UTC, datetime, timedelta
 
-import requests
+# import requests
+import httpx2
 import skops.io as sio
 from sqlalchemy import select
 
 from mona_core.celery_conf import app
 from mona_core.config import settings
 from mona_core.db import Device, Metric, SessionLocal, TrainedModel
+
+# ─── Logger ─────────────────────────────────────────────────────────────────
+logger = logging.getLogger(__name__)
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -17,14 +22,34 @@ PROMETHEUS_URL = os.getenv(
 )
 
 
+# def _query(prometheus_url: str, query: str) -> float:
+#     resp = requests.get(
+#         f"{prometheus_url}/api/v1/query",
+#         params={"query": query},
+#         timeout=5,
+#     )
+#     data = resp.json()
+#     return float(data["data"]["result"][0]["value"][1]) if data["data"]["result"] else 0
+
+
 def _query(prometheus_url: str, query: str) -> float:
-    resp = requests.get(
-        f"{prometheus_url}/api/v1/query",
-        params={"query": query},
-        timeout=5,
-    )
-    data = resp.json()
-    return float(data["data"]["result"][0]["value"][1]) if data["data"]["result"] else 0
+    # Использование httpx.Client или разового запроса httpx.get()
+    try:
+        resp = httpx2.get(
+            f"{prometheus_url}/api/v1/query",
+            params={"query": query},
+            timeout=5.0,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return (
+            float(data["data"]["result"][0]["value"][1])
+            if data["data"]["result"]
+            else 0.0
+        )
+    except (httpx2.HTTPError, KeyError, IndexError) as e:
+        logger.warning(f"Failed to query Prometheus: {e}")
+        return 0.0
 
 
 def _build_features(rows):
@@ -43,6 +68,59 @@ def _build_features(rows):
 
 
 # ─── Tasks ──────────────────────────────────────────────────────────────────
+
+
+# @app.task(name="tasks.collect_and_save")
+# def collect_and_save():
+#     """CPU/RAM metrics from physical PCs via custom Prometheus."""
+#     db = SessionLocal()
+#     try:
+#         config_devices = os.getenv("EXPORTERS", "").split(",")
+
+#         for entry in config_devices:
+#             if not entry or ":" not in entry:
+#                 continue
+
+#             device_name, device_ip = entry.split(":", 1)
+#             existing = db.execute(
+#                 select(Device).where(Device.name == device_name)
+#             ).scalar_one_or_none()
+#             if not existing:
+#                 new_dev = Device(name=device_name, ip=device_ip, is_active=True)
+#                 db.add(new_dev)
+#             elif existing.ip != device_ip:
+#                 existing.ip = device_ip
+
+#         db.commit()
+
+#         active_devices = (
+#             db.execute(select(Device).where(Device.is_active)).scalars().all()
+#         )
+
+#         results = []
+#         for dev in active_devices:
+#             job = dev.name
+#             sel = f'job="{job}",physical_pc="true"'
+#             cpu_query = f'100 * (1 - avg(rate(node_cpu_seconds_total{{{sel},mode="idle"}}[5m])))'
+#             ram_query = (
+#                 f"avg((1 - (node_memory_MemAvailable_bytes{{{sel}}}"
+#                 f" / node_memory_MemTotal_bytes{{{sel}}})) * 100)"
+#             )
+#             cpu = _query(PROMETHEUS_URL, cpu_query)
+#             ram = _query(PROMETHEUS_URL, ram_query)
+
+#             metric = Metric(cpu=cpu, ram=ram, device=job)
+#             db.add(metric)
+#             results.append({"device": job, "cpu": round(cpu, 2), "ram": round(ram, 2)})
+
+#         db.commit()
+#         return results
+#     except Exception as e:
+#         db.rollback()
+#         logger.exception("Error collecting metrics")
+#         return {"error": str(e)}
+#     finally:
+#         db.close()
 
 
 @app.task(name="tasks.collect_and_save")
@@ -73,26 +151,50 @@ def collect_and_save():
         )
 
         results = []
-        for dev in active_devices:
-            job = dev.name
-            sel = f'job="{job}",physical_pc="true"'
-            cpu_query = f'100 * (1 - avg(rate(node_cpu_seconds_total{{{sel},mode="idle"}}[5m])))'
-            ram_query = (
-                f"avg((1 - (node_memory_MemAvailable_bytes{{{sel}}}"
-                f" / node_memory_MemTotal_bytes{{{sel}}})) * 100)"
-            )
-            cpu = _query(PROMETHEUS_URL, cpu_query)
-            ram = _query(PROMETHEUS_URL, ram_query)
+        with httpx2.Client(base_url=PROMETHEUS_URL, timeout=0.5) as client:
+            for dev in active_devices:
+                job = dev.name
+                sel = f'job="{job}",physical_pc="true"'
+                cpu_query = f'100 * (1 - avg(rate(node_cpu_seconds_total{{{sel},mode="idle"}}[5m])))'
+                ram_query = (
+                    f"avg((1 - (node_memory_MemAvailable_bytes{{{sel}}}"
+                    f" / node_memory_MemTotal_bytes{{{sel}}})) * 100)"
+                )
+                try:
+                    cpu_resp = client.get(
+                        "/api/v1/query", params={"query": cpu_query}
+                    ).json()
+                    ram_resp = client.get(
+                        "/api/v1/query", params={"query": ram_query}
+                    ).json()
 
-            metric = Metric(cpu=cpu, ram=ram, device=job)
-            db.add(metric)
-            results.append({"device": job, "cpu": round(cpu, 2), "ram": round(ram, 2)})
+                    cpu = (
+                        float(cpu_resp["data"]["result"][0]["value"][1])
+                        if cpu_resp.get("data", {}).get("result")
+                        else 0.0
+                    )
+                    ram = (
+                        float(ram_resp["data"]["result"][0]["value"][1])
+                        if ram_resp.get("data", {}).get("result")
+                        else 0.0
+                    )
+                except (httpx2.HTTPError, KeyError, IndexError) as err:
+                    logger.warning(
+                        f"Failed to fetch Prometheus metrics for {job}: {err}"
+                    )
+                    cpu, ram = 0.0, 0.0
 
-        db.commit()
-        return results
+                metric = Metric(cpu=cpu, ram=ram, device=job)
+                db.add(metric)
+                results.append(
+                    {"device": job, "cpu": round(cpu, 2), "ram": round(ram, 2)}
+                )
+
+            db.commit()
+            return results
     except Exception as e:
         db.rollback()
-        print(f"Error collecting metrics: {e}")
+        logger.exception("Error collecting metrics")
         return {"error": str(e)}
     finally:
         db.close()
@@ -152,8 +254,9 @@ def train_model_task(hours: float, note: str):
             "message": f"Model trained on {len(rows)} points over the last {hours} h.",
         }
 
-    except Exception as e:
+    except Exception:
         db.rollback()
-        return {"status": "error", "message": str(e)}
+        logger.exception("Server error during training model")
+        return {"status": "error", "message": "Server error"}
     finally:
         db.close()

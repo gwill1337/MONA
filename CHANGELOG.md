@@ -13,11 +13,15 @@ All notable changes to this project will be documented in this file.
 - backend: Added CRUD for users.
 - backend: Added `docker-compose.dev.yml` for development.
 - backend: Added `docker-compose.prod.yml` as second way to setup MONA.
+- bachend: Added logger.
+- bachend: Added formatter for logger.
 - frontend: Added page `userboard`.
 - frontend: Added config with `API_URL` and `API_VERSION`.
 - frontend: Added formatter for `status codes` and `error` into `apiFetch`.
 
 ### Changed
+- backend: Moved to `uv sync` & `uv lock` from `pip install` in docker images.
+- backend: Moved to `httpx2` from `requests`.
 - frontend: Split Dashboard.tsx and DeviceAdmin.tsx to components.
 - frontend: Split endpoints to folder routes on backend.
 - frontend: Moved to axios from fetch.

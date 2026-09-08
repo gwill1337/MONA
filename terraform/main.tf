@@ -135,6 +135,21 @@ resource "helm_release" "mona_app" {
   ]
 
   set {
+    name  = "fastapi.env.LOG_LEVEL_FASTAPI"
+    value = var.LOG_LEVEL_FASTAPI
+  }
+
+  set {
+    name  = "celeryBeat.env.LOG_LEVEL_CELERY_BEAT"
+    value = var.LOG_LEVEL_CELERY_BEAT
+  }
+
+  set {
+    name  = "celeryWorker.env.LOG_LEVEL_CELERY_WORKER"
+    value = var.LOG_LEVEL_CELERY_WORKER
+  }
+
+  set {
     name  = "postgres.auth.user"
     value = var.postgres_user
   }

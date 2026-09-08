@@ -43,12 +43,12 @@ spec:
               readOnly: true
           livenessProbe:
             exec:
-              command: ["pg_isready", "-U", "{{ .Values.postgres.auth.user }}"]
+              command: ["pg_isready", "-U", "{{ .Values.postgres.auth.user }}", "-d", "{{ .Values.postgres.auth.db }}"]
             initialDelaySeconds: 10
             periodSeconds: 10
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "{{ .Values.postgres.auth.user }}"]
+              command: ["pg_isready", "-U", "{{ .Values.postgres.auth.user }}", "-d", "{{ .Values.postgres.auth.db }}"]
             initialDelaySeconds: 5
             periodSeconds: 10
           resources:

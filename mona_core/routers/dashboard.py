@@ -19,7 +19,6 @@ def get_dashboard_data(
     max_points: int = Query(default=2000, le=10000),
     db: Session = Depends(get_db),
 ) -> DashboardOut:
-
     devices = list(db.scalars(select(Metric.device).distinct()).all())
 
     since = datetime.now(UTC) - timedelta(hours=hours) if hours > 0 else None

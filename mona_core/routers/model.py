@@ -1,3 +1,4 @@
+import logging
 from datetime import UTC, datetime, timedelta
 
 from fastapi import Depends, HTTPException, Query, status
@@ -21,6 +22,9 @@ from mona_core.security import (
     get_db,
     user_router,
 )
+
+# ─── Logger ─────────────────────────────────────────────────────────────────
+logger = logging.getLogger(__name__)
 
 
 @user_router.get("/anomalies", response_model=AnomalyOut)
@@ -111,9 +115,10 @@ def delete_model(db: Session = Depends(get_db)) -> DeleteModelOut:
             message="Model deleted. Celery switched to auto-mode.",
         )
 
-    except Exception as e:
+    except Exception:
         db.rollback()
+        logger.exception("Server error during creating task for deletion the model")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            detail="Server error",
         )

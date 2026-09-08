@@ -11,9 +11,9 @@ app = Celery(
     backend=redis_url,
 )
 
-database_url = settings.postgres_url
-if not database_url.startswith("db+"):
-    database_url = f"db+{database_url}"
+# database_url = settings.postgres_url
+# if not database_url.startswith("db+"):
+#     database_url = f"db+{database_url}"
 
 app.conf.update(timezone="UTC", worker_pool="solo")
 

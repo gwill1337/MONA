@@ -51,12 +51,13 @@ services:
       redis:
         condition: service_healthy
     environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       UV_NO_CACHE: "1"
       POSTGRES_USER: ${POSTGRES_USER:-myuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-mydb}
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       REDIS_URL: redis://redis:6379
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:30081"]}
       ADMIN_USERNAMES: ${ADMIN_USERNAMES:-admin}
@@ -93,11 +94,12 @@ services:
       api:
         condition: service_healthy
     environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       POSTGRES_USER: ${POSTGRES_USER:-myuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-mydb}
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       REDIS_URL: redis://redis:6379
       PROMETHEUS_URL: http://prometheus:9090
       # Comma-separated jobName:host pairs for physical PCs, e.g. "pc-test:10.0.0.8"
@@ -127,11 +129,12 @@ services:
       redis:
         condition: service_healthy
     environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       POSTGRES_USER: ${POSTGRES_USER:-myuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-mydb}
       POSTGRES_HOST: postgres
-      POSTGRES_PORT: "5432"
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       REDIS_URL: redis://redis:6379
     command: celery -A mona_core.celery_conf beat --loglevel=info -s /tmp/celerybeat-schedule
     volumes:

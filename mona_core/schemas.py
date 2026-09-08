@@ -26,6 +26,7 @@ class UserGetOut(BaseModel):
 
 
 class DeviceOut(BaseModel):
+    id: int
     ip: str
     name: str
     is_active: bool = True

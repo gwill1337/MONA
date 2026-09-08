@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import secrets
 
@@ -15,6 +16,9 @@ from mona_core.schemas import (
     MessageResponse,
     UserSession,
 )
+
+# ─── Logger ─────────────────────────────────────────────────────────────────
+logger = logging.getLogger(__name__)
 
 
 # ─── helpers ────────────────────────────────────────────────────────────────
@@ -68,8 +72,8 @@ def _seed_role(
     usernames: list[str], passwords: list[str], role: str, db: Session
 ) -> None:
     if len(usernames) != len(passwords):
-        print(
-            f"Warning: mismatched username/password count for role '{role}', skipping"
+        logger.warning(
+            f"mismatched username/password count for role '{role}', skipping"
         )
         return
     for username, password in zip(usernames, passwords):
@@ -96,9 +100,9 @@ def seed_admin() -> None:
             _seed_role(admin_usernames, admin_passwords, "admin", db)
             _seed_role(user_usernames, user_passwords, "user", db)
             db.commit()
-        except Exception as e:
+        except Exception:
             db.rollback()
-            print(f"Error: {e}")
+            logger.exception("Error during seed_admin")
 
 
 # ─── limiter ────────────────────────────────────────────────────────────────
@@ -114,6 +118,7 @@ async def check_rate_limit(
 
     if attempts > max_attempts:
         ttl = await redis_client.ttl(attempts_key)
+        logger.warning("Rate limit exceeded", extra={"key": key, "attempts": attempts})
         raise HTTPException(
             status_code=429,
             detail=f"Too many attempts. Try again in {ttl} seconds",

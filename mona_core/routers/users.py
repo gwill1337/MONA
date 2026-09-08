@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -19,6 +21,9 @@ from mona_core.security import (
     remove_all_sessions,
 )
 
+# ─── Logger ─────────────────────────────────────────────────────────────────
+logger = logging.getLogger(__name__)
+
 
 @admin_router.get("/users", response_model=list[UserGetOut])
 def get_users(
@@ -36,6 +41,7 @@ def create_user(
     body: CreateUser,
     db: Session = Depends(get_db),
 ) -> MessageResponse:
+    logger.debug("Attempting to create a new user")
     user = Users(username=body.username, role=body.role)
     user.set_password(body.password)
     db.add(user)
@@ -44,11 +50,18 @@ def create_user(
         db.refresh(user)
     except IntegrityError:
         db.rollback()
+        logger.warning("User creation conflict error")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="User already exists",
         )
+    except Exception:
+        logger.exception("Server Error during user creation")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Server error"
+        )
 
+    logger.info("User created", extra={"username": body.role, "role": body.role})
     return MessageResponse(message="User created")
 
 
@@ -71,6 +84,7 @@ async def delete_user(
             select(func.count()).select_from(Users).where(Users.role == "admin")
         ).scalar_one()
         if admin_count <= 1:
+            logger.warning("Attempting to delete the last remaining admin")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot delete the last remaining admin",
@@ -80,15 +94,17 @@ async def delete_user(
     try:
         db.commit()
 
-    except Exception as e:
+    except Exception:
         db.rollback()
+        logger.exception("Server error during user deletion")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            detail="Server error",
         )
 
     await remove_all_sessions(user_id)
 
+    logger.info("User deleted", extra={"user_id": user_id})
     return MessageResponse(message="User deleted")
 
 
@@ -106,20 +122,24 @@ def change_user_password(
     query = select(Users).where(Users.username == body.username)
     res = db.execute(query).scalar_one_or_none()
     if not res:
-        # log Warn
+        logger.warning("User not found for changing user password")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Username or Password invalid",
+            detail="Username invalid",
         )
     res.set_password(body.new_password)
     try:
         db.commit()
-    except Exception as e:
+    except Exception:
         db.rollback()
+        logger.exception(
+            "Server error during password changing", extra={"username": body.username}
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+            detail="Server error",
         )
+    logger.info("Password changed for user", extra={"username": body.username})
     return MessageResponse(message="Password changed")
 
 
@@ -134,27 +154,36 @@ def change_user_role(
     user = db.execute(stmt).scalar_one_or_none()
 
     if not user:
+        logger.warning("User not found for role changing")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"status": "error", "message": "User not found"},
         )
 
-    if user.role == body.role:
+    if user.username == current_user.username:
+        logger.warning(
+            "Attempting to change role to own role", extra={"username": user.username}
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot change your own role",
+        )
+    elif user.role == body.role:
+        logger.info("Role unchanged", extra={"username": user.username})
         return MessageResponse(message="Role unchanged")
     elif user.role == "admin" and body.role == "user":
         admin_count = db.execute(
             select(func.count()).select_from(Users).where(Users.role == "admin")
         ).scalar_one()
         if admin_count <= 1:
+            logger.warning(
+                "Attempting to demote the last remaining admin",
+                extra={"username": user.username},
+            )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot demote the last remaining admin",
             )
-    elif user.username == current_user.username:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You cannot change your own role",
-        )
 
     user.role = body.role
     try:
@@ -162,8 +191,10 @@ def change_user_role(
         db.refresh(user)
     except Exception:
         db.rollback()
+        logger.exception("Server error during role changing")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Server error",
         )
+    logger.info("Role switched", extra={"username": user.username})
     return MessageResponse(message="Role switched")

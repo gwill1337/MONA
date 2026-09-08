@@ -921,17 +921,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dotenv"
-version = "0.9.9"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "python-dotenv" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b2/b7/545d2c10c1fc15e48653c91efde329a790f2eecfbbf2bd16003b5db2bab0/dotenv-0.9.9-py2.py3-none-any.whl", hash = "sha256:29cf74a087b31dafdb5a446b6d7e11cbce8ed2741540e2339c69fbef92c94ce9", size = 1892, upload-time = "2025-02-19T22:15:01.647Z" },
-]
-
-[[package]]
 name = "dpath"
 version = "2.1.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1517,114 +1506,116 @@ name = "mona"
 version = "0.4.0"
 source = { virtual = "." }
 dependencies = [
-    { name = "alembic" },
     { name = "bcrypt" },
     { name = "celery" },
-    { name = "dotenv" },
-    { name = "fastapi" },
-    { name = "prometheus-fastapi-instrumentator" },
+    { name = "httpx2" },
     { name = "psycopg2-binary" },
+    { name = "pydantic" },
     { name = "pydantic-settings" },
-    { name = "pyyaml" },
     { name = "redis" },
-    { name = "requests" },
-    { name = "skops" },
     { name = "sqlalchemy" },
-    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
 ci = [
-    { name = "celery" },
     { name = "fakeredis" },
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "httpx2" },
     { name = "mypy" },
     { name = "prometheus-fastapi-instrumentator" },
     { name = "pydantic" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
-    { name = "sqlalchemy" },
 ]
 dev = [
+    { name = "alembic" },
     { name = "celery" },
     { name = "checkov" },
     { name = "fakeredis" },
     { name = "fastapi" },
     { name = "httpx" },
-    { name = "httpx2" },
+    { name = "mypy" },
     { name = "numpy" },
     { name = "pre-commit" },
     { name = "prometheus-fastapi-instrumentator" },
-    { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pyyaml" },
-    { name = "redis" },
-    { name = "requests" },
     { name = "ruff" },
     { name = "scikit-learn" },
-    { name = "sqlalchemy" },
+    { name = "skops" },
     { name = "uvicorn" },
+]
+docker-fastapi = [
+    { name = "alembic" },
+    { name = "fastapi" },
+    { name = "prometheus-fastapi-instrumentator" },
+    { name = "uvicorn" },
+]
+worker = [
+    { name = "numpy" },
+    { name = "pyyaml" },
+    { name = "scikit-learn" },
+    { name = "skops" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "alembic", specifier = ">=1.18.5" },
     { name = "bcrypt", specifier = ">=5.0.0" },
     { name = "celery", specifier = ">=5.6.3" },
-    { name = "dotenv", specifier = ">=0.9.9" },
-    { name = "fastapi", specifier = ">=0.139.0" },
-    { name = "prometheus-fastapi-instrumentator", specifier = ">=8.0.2" },
+    { name = "httpx2", specifier = ">=2.12.0" },
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
-    { name = "pydantic-settings", specifier = ">=2.14.2" },
-    { name = "pyyaml", specifier = ">=6.0.1" },
-    { name = "redis", specifier = ">=8.0.1" },
-    { name = "requests", specifier = ">=2.34.2" },
-    { name = "skops", specifier = ">=0.14.0" },
-    { name = "sqlalchemy", specifier = ">=2.0.51" },
-    { name = "uvicorn", specifier = ">=0.51.0" },
+    { name = "pydantic", specifier = ">=2.13.5" },
+    { name = "pydantic-settings", specifier = ">=2.15.0" },
+    { name = "redis", specifier = ">=8.1.0" },
+    { name = "sqlalchemy", specifier = ">=2.0.52" },
 ]
 
 [package.metadata.requires-dev]
 ci = [
-    { name = "celery", specifier = ">=5.6.3" },
     { name = "fakeredis", specifier = ">=2.37.1" },
     { name = "fastapi", specifier = ">=0.139.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "httpx2", specifier = ">=2.5.0" },
     { name = "mypy", specifier = ">=2.2.0" },
     { name = "prometheus-fastapi-instrumentator", specifier = ">=8.0.2" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
     { name = "ruff", specifier = ">=0.15.21" },
-    { name = "sqlalchemy", specifier = ">=2.0.51" },
 ]
 dev = [
+    { name = "alembic", specifier = ">=1.19.1" },
     { name = "celery", specifier = ">=5.6.3" },
     { name = "checkov", specifier = ">=3.3.8" },
     { name = "fakeredis", specifier = ">=2.37.1" },
     { name = "fastapi", specifier = ">=0.139.0" },
     { name = "httpx", specifier = ">=0.28.1" },
-    { name = "httpx2", specifier = ">=2.5.0" },
+    { name = "mypy", specifier = ">=2.3.1" },
     { name = "numpy", specifier = ">=2.5.1" },
     { name = "pre-commit", specifier = ">=4.6.1" },
     { name = "prometheus-fastapi-instrumentator", specifier = ">=8.0.2" },
-    { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pytest", specifier = ">=9.1.1" },
     { name = "pytest-asyncio", specifier = ">=1.4.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
-    { name = "redis", specifier = ">=8.0.1" },
-    { name = "requests", specifier = ">=2.34.2" },
     { name = "ruff", specifier = ">=0.15.21" },
     { name = "scikit-learn", specifier = ">=1.9.0" },
-    { name = "sqlalchemy", specifier = ">=2.0.51" },
+    { name = "skops", specifier = ">=0.14.0" },
     { name = "uvicorn", specifier = ">=0.51.0" },
+]
+docker-fastapi = [
+    { name = "alembic", specifier = ">=1.19.1" },
+    { name = "fastapi", specifier = ">=0.141.1" },
+    { name = "prometheus-fastapi-instrumentator", specifier = ">=8.1.0" },
+    { name = "uvicorn", specifier = ">=0.52.4" },
+]
+worker = [
+    { name = "numpy", specifier = ">=2.5.1" },
+    { name = "pyyaml", specifier = ">=6.0.1" },
+    { name = "scikit-learn", specifier = ">=1.9.0" },
+    { name = "skops", specifier = ">=0.14.0" },
 ]
 
 [[package]]
