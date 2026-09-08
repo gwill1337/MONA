@@ -331,4 +331,4 @@ class TestDetectAnomalies:
         result = ml.detect_anomalies()
 
         assert result["status"] == "error"
-        assert "broken" in result["error"]
+        assert "Server error" in result["error"]

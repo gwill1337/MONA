@@ -134,7 +134,7 @@ class TestUser:
             json={"username": "ghost", "new_password": "newpass1"},
         )
         assert resp.status_code == 404
-        assert resp.json()["message"] == "Username or Password invalid"
+        assert resp.json()["message"] == "Username invalid"
  
     def test_change_password_success(self, client, mock_admin_auth, make_user, db_session):
         make_user(username="alice", password="oldpass1")

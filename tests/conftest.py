@@ -14,6 +14,7 @@ os.environ["REDIS_URL"] = "redis://localhost:6379/15"
 from mona_core import db as db_module  # noqa: E402
 from mona_core import main as main_module  # noqa: E402
 from mona_core import security as security_module  # noqa: E402
+from mona_core import tasks as tasks_module  # noqa: E402
 from mona_core.routers import health as health_module # noqa: E402
 from mona_core.config import celery_client # noqa: E402
 
@@ -136,3 +137,68 @@ def mock_redis(monkeypatch):
     monkeypatch.setattr(security_module, "redis_client", fake)
     monkeypatch.setattr(health_module, "redis_client", fake)
     return fake
+
+# ─── Prometheus mocks (used by tasks._query / tasks.collect_and_save) ───────
+class FakeResponse:
+    """Mimics an httpx2 Response, for mocking tasks.httpx2.get() calls."""
+
+    def __init__(self, value=None, empty=False):
+        self._value = value
+        self._empty = empty
+
+    def raise_for_status(self):
+        pass
+
+    def json(self):
+        if self._empty:
+            return {"data": {"result": []}}
+        return {"data": {"result": [{"value": [123, str(self._value)]}]}}
+
+class FakeClient:
+    """Mimics httpx2.Client(base_url=..., timeout=...) used as a context manager.
+    `values` is an iterable of numbers consumed in call order: collect_and_save()
+    issues one GET for the cpu query, then one for the ram query, per device.
+    So values = [cpu1, ram1, cpu2, ram2, ...].
+    """
+
+    def __init__(self, values):
+        self._values = iter(values)
+        self.calls = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
+
+    def get(self, path, params=None):
+        self.calls.append(params)
+        return FakeResponse(value=next(self._values))
+
+
+@pytest.fixture()
+def fake_prometheus_response():
+    """Factory for FakeResponse objects, to mock tasks.httpx2.get() directly.
+    Usage:
+        monkeypatch.setattr(tasks.httpx2, "get", lambda *a, **k: fake_prometheus_response(57.8))
+    """
+
+    def _make(value=None, empty=False):
+        return FakeResponse(value=value, empty=empty)
+    return _make
+
+
+@pytest.fixture()
+def patch_prometheus_client(monkeypatch):
+    """Patches tasks.httpx2.Client with a FakeClient that yields `values` in order.
+    Usage:
+        def test_x(self, monkeypatch, db_session, patch_prometheus_client):
+            patch_prometheus_client([55.5, 77.7])  # cpu, ram for one device
+            tasks.collect_and_save()
+    """
+
+    def _patch(values):
+        fake_client = FakeClient(values)
+        monkeypatch.setattr(tasks_module.httpx2, "Client", lambda *a, **k: fake_client)
+        return fake_client
+    return _patch

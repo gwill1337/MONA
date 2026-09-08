@@ -55,10 +55,13 @@ class TestHelpers:
 class TestQuery:
     def test_query_returns_value(self, monkeypatch):
         class FakeResponse:
+            def raise_for_status(self):
+                pass
+            
             def json(self):
                 return {"data": {"result": [{"value": [123, "57.8"]}]}}
 
-        monkeypatch.setattr(tasks.requests, "get", lambda *a, **k: FakeResponse())
+        monkeypatch.setattr(tasks.httpx2, "get", lambda *a, **k: FakeResponse())
 
         value = tasks._query("http://localhost", "up")
 
@@ -66,10 +69,13 @@ class TestQuery:
 
     def test_query_empty_result(self, monkeypatch):
         class FakeResponse:
+            def raise_for_status(self):
+                pass
+            
             def json(self):
                 return {"data": {"result": []}}
 
-        monkeypatch.setattr(tasks.requests, "get", lambda *a, **k: FakeResponse())
+        monkeypatch.setattr(tasks.httpx2, "get", lambda *a, **k: FakeResponse())
 
         assert tasks._query("url", "query") == 0
 
@@ -79,17 +85,14 @@ class TestCollectAndSave:
         self,
         monkeypatch,
         db_session,
+        patch_prometheus_client,
     ):
         monkeypatch.setenv(
             "EXPORTERS",
             "pc1:10.0.0.1",
         )
 
-        monkeypatch.setattr(
-            tasks,
-            "_query",
-            lambda *a, **k: 25.0,
-        )
+        patch_prometheus_client([25.0, 25.0])
 
         result = tasks.collect_and_save()
 
@@ -104,6 +107,7 @@ class TestCollectAndSave:
         self,
         monkeypatch,
         db_session,
+        patch_prometheus_client,
     ):
         db_session.add(
             Device(
@@ -119,11 +123,7 @@ class TestCollectAndSave:
             "pc1:2.2.2.2",
         )
 
-        monkeypatch.setattr(
-            tasks,
-            "_query",
-            lambda *a, **k: 10,
-        )
+        patch_prometheus_client([10, 10])
 
         tasks.collect_and_save()
 
@@ -149,6 +149,7 @@ class TestCollectAndSave:
         self,
         monkeypatch,
         db_session,
+        patch_prometheus_client,
     ):
         db_session.add(
             Device(
@@ -159,13 +160,7 @@ class TestCollectAndSave:
         )
         db_session.commit()
 
-        values = iter([55.5, 77.7])
-
-        monkeypatch.setattr(
-            tasks,
-            "_query",
-            lambda *a, **k: next(values),
-        )
+        patch_prometheus_client([55.5, 77.7])
 
         result = tasks.collect_and_save()
 
@@ -263,7 +258,7 @@ class TestTrainModel:
         )
 
         assert result["status"] == "error"
-        assert "skops error" in result["message"]
+        assert "Server error" in result["message"]
 
 class TestTasksApi:
     def test_train_model_submits_task(self, client, mock_celery, mock_admin_auth):
