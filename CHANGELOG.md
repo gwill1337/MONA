@@ -1,7 +1,7 @@
 # CHANGELOG
 
 All notable changes to this project will be documented in this file.
-## [v0.7.0] - 2026-08-28 - Major update
+## [v0.7.0] - 2026-09-14 - Major update
 ### Added
 - backend: Added API versioning except probes and prometheus endpoints.
 - backend: Added return type annotations to API endpoints.
