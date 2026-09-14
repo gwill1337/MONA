@@ -1,9 +1,0 @@
-:8080
-
-root * /usr/share/caddy
-
-encode gzip zstd
-
-file_server
-
-try_files {path} /index.html

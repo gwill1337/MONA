@@ -1,34 +1,61 @@
 # MONA - Monitor & Analytics Tool
+<div align="center">
+
+![CI Pipeline](https://img.shields.io/badge/CI_Pipeline-Automated_Checks-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-844FBA?style=for-the-badge&logo=terraform&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+
+</div>
 
 ## About
 MONA is a K8s-based monitoring and analytics tool managed with Terraform and Helm. It collects and analyzes system metrics, built on Python with Celery and Redis as a task broker for metrics collection and ML workloads. FastAPI serves as the REST API/backend, React + Tailwind v4 + TypeScript handles web UI frontend, and PostgreSQL stores all metrics data.
 
 
 ## Quick Start:
+### Terraform:
 1. Ensure [**Docker Desktop**](https://www.docker.com/products/docker-desktop/), [**kind**](https://github.com/kubernetes-sigs/kind), [**helm**](https://helm.sh/) and [**Terraform**](https://developer.hashicorp.com/terraform/install) are installed.
 2. Set up node-exporter on the device you want to monitor with port 9100.
 3. Clone repo `git clone https://github.com/gwill1337/MONA.git`
-4. Configure the necessary values in "mona-chart/[values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml)"[ConfigurationGuide](https://github.com/gwill1337/MONA/blob/dev/ConfigurationGuide.md). *such as PC's IP & name or just add them via **Admin panel***
+4. Configure the necessary values in "mona-chart/[values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml)" [[ConfigurationGuide]](https://github.com/gwill1337/MONA/blob/dev/ConfigurationGuide.md). *such as PC's IP & name or just add them via **Admin panel***
 5. Configure `config.py` for ML and FastAPI limiter settings.
 6. Create `terraform.tfvars` in terraform folder from `terraform.tfvars.example`.
-7. Deploy: Run the automated script:
+7. Deploy: Run the automated script:   
+
+**Windows:**
 ```Powershell
 .\deploy.ps1 -all # or .\deploy.ps1 -deploy
 ```
-Or via makefile:
+**Linux/MacOS:**
 ```makefile
 make all
 ```
 *For manual deployment, use terraform init && terraform apply inside the /terraform folder.*
 
+### Docker-compose (without grafana and alerting):
+1. Ensure [**Docker Desktop**](https://www.docker.com/products/docker-desktop/) are installed.
+2. Set up node-exporter on the device you want to monitor with port 9100.
+3. Clone repo `git clone https://github.com/gwill1337/MONA.git`
+4. Copy `.env.example` to `.env`
+5. Run the `docker-compose.prod.yml`:
+```bash
+docker compose -p mona-prod --env-file .env -f docker-compose.prod.yml up -d --build
+```
+*The Docker Compose version comes without Grafana, Prometheus (for the cluster), and Alertmanager.*
+
 ## Usage
 **Links below are available after setup.**
 ### Main links:
-* **Admin panel:** `localhost:30081/admin` *Default username: admin, password: admin123*
-* **Dashboards:** `localhost:30081/admin/dashboard`
+* **Admin panel:** `localhost:30081/` *Default username: admin, password: admin123*
+* **Dashboards:** `localhost:30081/dashboard`
+* **Userboard:** `localhost:30081/userboard`
 * **Grafana:** `localhost:30300/` *Default username: admin, password: admin123*
-* **Prometheus(Cluster):** `localhost:30091/`
 * **Prometheus(Monitoring devices):** `localhost:30391/`
+* **Prometheus(Cluster):** `localhost:30091/`
 
 <details>
 <summary><b>Click to view detailed API endpoints</b></summary>
@@ -36,24 +63,42 @@ make all
 ### API:
 *P.S. All endpoint require authentification except prometheus and probes.*
 * Swagger: `localhost:30080/docs`
-* Main-metrics[Get]: `localhost:30080/db-metrics`
-* Prometheus targets[Get]: `localhost:30080/api/prometheus/targets`
-* Anomalies[Get]: `localhost:30080/anomalies`
-* Model-info[Get]: `localhost:30080/model-info`
-* Devices[Get]: `localhost:30080/devices`
-* Devices[Post]: `localhost:30080/devices` *available via curl*
-* Devices[Delete]: `localhost:30080/devices/{device_id}` *available via curl*
-* Train[Post]: `localhost:30080/train` *available via curl*
-* Model[Delete]: `localhost:30080/model` *available via curl*
-* Dashboard[Get]: `localhost:30080/api/dashboard`
+
+#### Users:
+* Users[Get]: `localhost:30080/api/v1/users`
+* User[Post]: `localhost:30080/api/v1/user`
+* User[Delete]: `localhost:30080/api/v1/user/{user_id}`
+* UserChangePassword[Patch]: `localhost:30080/api/v1/user/change-password`
+* UserChangeRole[Patch]: `localhost:30080/api/v1/user/{user_id}/role`
+
+#### Devices:
+* Devices[Get]: `localhost:30080/api/v1/devices`
+* Devices[Post]: `localhost:30080/api/v1/devices`
+* Devices[Delete]: `localhost:30080/api/v1/devices/{device_id}`
+
+#### Model:
+* Model-info[Get]: `localhost:30080/api/v1/model-info`
+* Train[Post]: `localhost:30080/api/v1/train`
+* Model[Delete]: `localhost:30080/api/v1/model`
+
+#### Monitoring:
+* Dashboard[Get]: `localhost:30080/api/v1/dashboard`
+* TaskStatus[Get]: `localhost:30080/api/v1/task-status/{task_id}`
+* Anomalies[Get]: `localhost:30080/api/v1/anomalies`
+* Metrics[Get]: `localhost:30080/api/v1/db-metrics`
+
+#### Authentication:
+* Login[Post]: `localhost:30080/api/v1/auth/login`
+* Logout[Post]: `localhost:30080/api/v1/auth/logout`
+* Check auth[Get]: `localhost:30080/api/v1/auth/me`
+
 #### Probes:
 * Liveness[Get]: `localhost:30080/health/live`
 * Readiness[Get]: `localhost:30080/health/ready`
 
-#### Authentication:
-* Login[Post]: `localhost:30080/api/auth/login`
-* Logout[Post]: `localhost:30080/api/auth/logout`
-* Check auth[Get]: `localhost:30080/api/auth/me`
+#### Prometheus Endpoints:
+* Metrics[Get]: `localhost:30080/metrics`
+* Targets[Get]: `localhost:30080/api/prometheus/targets`
 
 </details>
 
@@ -66,7 +111,7 @@ Helm templates for flexible and fast setup can be configured in [values](https:/
 * **API Engine:** FastAPI endpoints for handling client requests.   
 * **Task Queue:** Celery workers with a Redis broker for background metrics collection and ML tasks.   
 * **PostgreSQL:** For storing metrics and analytics data.  
-* **Redis:** As broker for celery and as storage for sessions and limiter. 
+* **Redis:** As a broker for celery and as a storage for sessions and limiter. 
 * **Monitoring Stack:** **Prometheus** for data scraping, **Grafana** for visualization (Recharts is also used in the web UI), Alertmanager for pod alert notifications, and **Loki** with **Promtail** for pod logs.   
 
 ![dashboard](https://github.com/gwill1337/Images/blob/main/MONA/dashboard.gif)
@@ -95,7 +140,7 @@ and can be opened via psql:
 kubectl exec -it statefulset/postgres-statefulset -n mona -- psql -U myuser -d mydb
 #              ⬆ pod name                          ⬆ namespace    ⬆ Username ⬆ DB name
 ```
-
+![userboard](https://github.com/gwill1337/Images/blob/main/MONA/userboard.gif)
 ## Authentication & Authorization
 MONA uses a stateful, cookie-based authentication system backed by Redis to secure the admin panel and core API endpoints.
 
@@ -119,7 +164,7 @@ Automated checks and docker build & push run on every push and pull request:
 * **Helm** — lint for helm charts
 * **YAML** — lint for values and chart files
 * **Python** — ruff (lint and format checks), MyPy (type checks), Pytest (Api tests)
-* **Docker** - scan images via Trivy
+* **Docker** — scan images via Trivy
 
 ## Architecture
 Here more about architecture and how mona works.

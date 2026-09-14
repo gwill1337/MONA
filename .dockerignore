@@ -37,6 +37,8 @@ conftest.py
 **/terraform.tfvars*
 **/*.tfvars
 **/.env
+**/.env.dev
+dev/.env.dev
 
 deploy.ps1
 Makefile

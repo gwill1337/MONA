@@ -3,15 +3,21 @@
 # Telegram alerts
 telegram_bot_token     = ""
 telegram_chat_id       = ""
-# Username and passowrd for admins and users 
+# Username and password for admins and users 
 admin_username         = ["admin", "admin2"]
 admin_password         = ["admin123", "test_123"]
 user_username          = ["user1"]
 user_password          = ["userpass1"]
 
+# Password for postgres generates automatically during terraform deploy via terraform
 postgres_user          = "myuser"
 postgres_db            = "mydb"
 postgres_port          = 5432
 
-# Passowrd for grafana
+# Password for grafana
 grafana_admin_password = "admin123"
+
+# Log level like ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"), "INFO" by default
+LOG_LEVEL_FASTAPI = ""
+LOG_LEVEL_CELERY_BEAT = ""
+LOG_LEVEL_CELERY_WORKER = ""

@@ -94,6 +94,8 @@ spec:
             - name: {{ $key }}
               value: {{ $val | quote }}
             {{- end }}
+            - name: LOG_LEVEL
+              value: {{ .Values.fastapi.env.LOG_LEVEL | quote}}
             - name: POSTGRES_USER
               value: {{ .Values.postgres.auth.user | quote }}
             - name: POSTGRES_PASSWORD

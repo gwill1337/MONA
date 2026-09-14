@@ -55,10 +55,13 @@ class TestHelpers:
 class TestQuery:
     def test_query_returns_value(self, monkeypatch):
         class FakeResponse:
+            def raise_for_status(self):
+                pass
+            
             def json(self):
                 return {"data": {"result": [{"value": [123, "57.8"]}]}}
 
-        monkeypatch.setattr(tasks.requests, "get", lambda *a, **k: FakeResponse())
+        monkeypatch.setattr(tasks.httpx2, "get", lambda *a, **k: FakeResponse())
 
         value = tasks._query("http://localhost", "up")
 
@@ -66,10 +69,13 @@ class TestQuery:
 
     def test_query_empty_result(self, monkeypatch):
         class FakeResponse:
+            def raise_for_status(self):
+                pass
+            
             def json(self):
                 return {"data": {"result": []}}
 
-        monkeypatch.setattr(tasks.requests, "get", lambda *a, **k: FakeResponse())
+        monkeypatch.setattr(tasks.httpx2, "get", lambda *a, **k: FakeResponse())
 
         assert tasks._query("url", "query") == 0
 
@@ -79,17 +85,14 @@ class TestCollectAndSave:
         self,
         monkeypatch,
         db_session,
+        patch_prometheus_client,
     ):
         monkeypatch.setenv(
             "EXPORTERS",
             "pc1:10.0.0.1",
         )
 
-        monkeypatch.setattr(
-            tasks,
-            "_query",
-            lambda *a, **k: 25.0,
-        )
+        patch_prometheus_client([25.0, 25.0])
 
         result = tasks.collect_and_save()
 
@@ -104,6 +107,7 @@ class TestCollectAndSave:
         self,
         monkeypatch,
         db_session,
+        patch_prometheus_client,
     ):
         db_session.add(
             Device(
@@ -119,11 +123,7 @@ class TestCollectAndSave:
             "pc1:2.2.2.2",
         )
 
-        monkeypatch.setattr(
-            tasks,
-            "_query",
-            lambda *a, **k: 10,
-        )
+        patch_prometheus_client([10, 10])
 
         tasks.collect_and_save()
 
@@ -149,6 +149,7 @@ class TestCollectAndSave:
         self,
         monkeypatch,
         db_session,
+        patch_prometheus_client,
     ):
         db_session.add(
             Device(
@@ -159,13 +160,7 @@ class TestCollectAndSave:
         )
         db_session.commit()
 
-        values = iter([55.5, 77.7])
-
-        monkeypatch.setattr(
-            tasks,
-            "_query",
-            lambda *a, **k: next(values),
-        )
+        patch_prometheus_client([55.5, 77.7])
 
         result = tasks.collect_and_save()
 
@@ -263,4 +258,59 @@ class TestTrainModel:
         )
 
         assert result["status"] == "error"
-        assert "skops error" in result["message"]
+        assert "Server error" in result["message"]
+
+class TestTasksApi:
+    def test_train_model_submits_task(self, client, mock_celery, mock_admin_auth):
+        resp = client.post("/api/v1/train", params={"hours": 2.5, "note": "manual run"})
+
+        assert resp.status_code == 202
+        body = resp.json()
+        assert body["status"] == "accepted"
+        assert "task_id" in body
+
+        assert len(mock_celery["send_task_calls"]) == 1
+        call = mock_celery["send_task_calls"][0]
+        assert call["name"] == "tasks.train_model_task"
+        assert call["kwargs"] == {"hours": 2.5, "note": "manual run"}
+
+    def test_train_model_defaults(self, client, mock_celery, mock_admin_auth):
+        resp = client.post("/api/v1/train")
+        assert resp.status_code == 202
+        assert len(mock_celery["send_task_calls"]) == 1
+        call = mock_celery["send_task_calls"][0]
+        assert call["name"] == "tasks.train_model_task"
+
+    def test_task_status_pending(self, client, mock_celery, mock_user_auth):
+        resp = client.get("/api/v1/task-status/some-task-id")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["task_id"] == "some-task-id"
+        assert body["state"] == "PENDING"
+        assert body["result"] is None
+
+        assert mock_celery["async_result_calls"] == ["some-task-id"]
+
+    def test_task_status_success(self, client, mock_celery, mock_user_auth):
+        fake_result_class = type(mock_celery["async_result_return"])
+        mock_celery["async_result_return"] = fake_result_class(
+            state="SUCCESS", result={"accuracy": 0.97}
+        )
+
+        resp = client.get("/api/v1/task-status/finished-task")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["state"] == "SUCCESS"
+        assert body["result"] == {"accuracy": 0.97}
+
+    def test_task_status_failure(self, client, mock_celery, mock_user_auth):
+        fake_result_class = type(mock_celery["async_result_return"])
+        mock_celery["async_result_return"] = fake_result_class(
+            state="FAILURE", result="boom: division by zero"
+        )
+
+        resp = client.get("/api/v1/task-status/broken-task")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["state"] == "FAILURE"
+        assert body["result"] == "boom: division by zero"

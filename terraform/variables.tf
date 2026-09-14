@@ -43,3 +43,15 @@ variable "grafana_admin_password" {
   type      = string
   sensitive = true
 }
+
+variable "LOG_LEVEL_FASTAPI" {
+  type = string
+}
+
+variable "LOG_LEVEL_CELERY_BEAT" {
+  type = string
+}
+
+variable "LOG_LEVEL_CELERY_WORKER" {
+  type = string
+}

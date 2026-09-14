@@ -44,6 +44,7 @@ fastapi:
   replicas: 1
   automountServiceAccountToken: false
   env:
+    LOG_LEVEL: INFO
     ADMIN_USERNAMES: ""
     ADMIN_PASSWORDS: ""
     USER_USERNAMES: ""
@@ -123,6 +124,8 @@ react:
 celeryWorker:
   replicas: 1
   automountServiceAccountToken: false
+  env:
+    LOG_LEVEL: INFO
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 10001
@@ -163,6 +166,8 @@ celeryWorker:
 celeryBeat:
   replicas: 1
   automountServiceAccountToken: false
+  env:
+    LOG_LEVEL: INFO
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 10001
@@ -358,7 +363,6 @@ kube-prometheus-stack:
       type: NodePort
       nodePort: 30091
     prometheusSpec:
-      # Отключаем привязку к helm-релизу
       serviceMonitorSelectorNilUsesHelmValues: false
       serviceMonitorSelector: {}
   # External node exporter for monitoring physical PC metrics.

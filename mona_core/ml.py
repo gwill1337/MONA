@@ -13,6 +13,7 @@ Features (6 items):
 """
 
 # import pickle
+import logging
 from datetime import UTC, datetime, timedelta
 
 import numpy as np
@@ -25,10 +26,8 @@ from mona_core.celery_conf import app
 from mona_core.config import settings
 from mona_core.db import Anomaly, Metric, SessionLocal, TrainedModel
 
-# WINDOW = 500
-# MIN_POINTS = 30
-# CONTAMINATION = 0.05
-# SCORE_THRESHOLD = -0.05
+# ─── Logger ─────────────────────────────────────────────────────────────────
+logger = logging.getLogger(__name__)
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -101,7 +100,6 @@ def _load_user_model(db):
         return None, None
     untrusted_types = sio.get_untrusted_types(data=record.model_data)
     model, scaler = sio.loads(record.model_data, trusted=untrusted_types)
-    # model, scaler = sio.loads(record.model_data, trusted=True) # type: ignore
     return model, scaler
 
 
@@ -150,6 +148,7 @@ def detect_anomalies():
                 preds = user_model.predict(X_scaled)
                 scores = user_model.decision_function(X_scaled)
                 mode = "user_model"
+                logger.info("Model switched to user model")
             else:
                 # ── Mode 2: on-the-fly training per device (fallback) ──
                 scaler = StandardScaler()
@@ -162,6 +161,7 @@ def detect_anomalies():
                 preds = model.fit_predict(X_scaled)
                 scores = model.decision_function(X_scaled)
                 mode = "auto"
+                logger.info("Model switched to mode auto")
 
             for i, row in enumerate(rows):
                 if mode == "auto" and row.timestamp < cutoff_new.replace(tzinfo=None):
@@ -195,6 +195,7 @@ def detect_anomalies():
         if new_anomalies:
             db.add_all(new_anomalies)
             db.commit()
+            logger.info("Found anomalies", extra={"Anomalies": new_anomalies})
 
         return {
             "status": "ok",
@@ -203,8 +204,9 @@ def detect_anomalies():
             "anomalies_found": len(new_anomalies),
         }
 
-    except Exception as e:
+    except Exception:
         db.rollback()
-        return {"status": "error", "error": str(e)}
+        logger.exception("Server error during detect anomalies")
+        return {"status": "error", "error": "Server error"}
     finally:
         db.close()

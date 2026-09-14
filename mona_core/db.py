@@ -1,5 +1,5 @@
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 import bcrypt
 from sqlalchemy import (
@@ -11,7 +11,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 from mona_core.config import settings
 
-# DATABASE = os.getenv("DATABASE_URL", "postgresql://myuser:1234@localhost:5432/mydb")
 DATABASE = settings.postgres_url
 
 engine = create_engine(DATABASE)
@@ -80,7 +79,7 @@ class Users(Base):
     id: Mapped[int_pk]
     username: Mapped[str] = mapped_column(unique=True)
     password_hash: Mapped[str]
-    role: Mapped[str] = mapped_column(default="user")
+    role: Mapped[Literal["user", "admin"]] = mapped_column(default="user")
 
     def set_password(self, password: str):
         salt = bcrypt.gensalt()

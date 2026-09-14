@@ -1,0 +1,70 @@
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  # =========================================================================
+  # 1. git commit
+  # =========================================================================
+  
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^mona_core/
+        stages: [pre-commit]
+      - id: ruff-format
+        files: ^mona_core/
+        stages: [pre-commit]
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.38.0
+    hooks:
+      - id: yamllint
+        args: [-c, .yamllint.yaml]
+        stages: [pre-commit]
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+        stages: [pre-commit]
+
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.108.1
+    hooks:
+      - id: terraform_fmt
+        stages: [pre-commit]
+
+  # =========================================================================
+  # 2. git push
+  # =========================================================================
+  
+  - repo: local
+    hooks:
+      - id: mypy
+        name: Mypy type check (uv)
+        entry: uv run mypy mona_core/
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: pytest
+        name: Pytest (uv)
+        entry: uv run pytest tests/
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: terraform-validate
+        name: Terraform validate
+        entry: bash -c "cd terraform && terraform init -backend=false && terraform validate"
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+
+      - id: helm-lint
+        name: Helm lint
+        entry: helm lint ./mona-chart
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

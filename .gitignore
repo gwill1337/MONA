@@ -39,6 +39,8 @@ __pycache__/
 .env
 venv/
 .venv/
+**/.env.dev
+dev/.env.dev
 
 # OS
 .DS_Store
