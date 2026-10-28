@@ -148,6 +148,12 @@ export default function DeviceAdmin() {
               >
                 Dashboard
               </button>
+              <button
+                onClick={() => navigate("/mcp")}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-sm transition-all shadow-lg shadow-cyan-500/20 hover:shadow-cyan-400/30 cursor-pointer"
+              >
+                Get MCP
+              </button>
             </div>
           </div>
         </header>

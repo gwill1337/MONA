@@ -10,7 +10,7 @@ import {
   Clock, Cpu, MemoryStick, RefreshCw,
   Server,
 } from "lucide-react";
-import { formatTime, getDeviceColor, getUrlDevices, setUrlDevices } from "../helpers/helpers";
+import { formatTime, getDeviceColor, getUrlDevices, setUrlDevices, toBucket, parseTs } from "../helpers/helpers";
 import type { DashboardData, MetricPoint } from "../types/Types";
 import type { Device } from "./DeviceAdmin";
 import { DeviceSelector } from "../components/deviceSelector";
@@ -19,6 +19,15 @@ import { StatCard } from "../components/statCard";
 import { ChartTooltip } from "../helpers/toolTip";
 import { ModelPanel } from "../components/modelPanel";
 import { AnomalyFeed } from "../components/anomalyFeed";
+
+// ─── Time helpers ─────────────────────────────────────────────────────────────
+// hours === 0 means "all time"; anything above one day also shows the date
+const fmtTick = (ts: number, hours: number) => {
+  const d = new Date(ts);
+  return hours === 0 || hours > 24
+    ? d.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+    : d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+};
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function Dashboard() {
@@ -102,24 +111,18 @@ export default function Dashboard() {
     selectedDevices.includes(m.device)
   );
 
-  const timelineMap: Record<string, Record<string, { cpu: number; ram: number }>> = {};
+  // Key = bucketed epoch ms (a number), NOT the formatted "HH:MM:SS" string.
+  // Sorting numerically keeps the order correct across midnight and multi-day ranges.
+  const timelineMap = new Map<number, Record<string, number>>();
   filteredMetrics.forEach((m) => {
-    const t = formatTime(m.timestamp);
-    if (!timelineMap[t]) timelineMap[t] = {};
-    timelineMap[t][m.device] = { cpu: m.cpu, ram: m.ram };
+    const ts = toBucket(m.timestamp);
+    const row = timelineMap.get(ts) ?? { ts };
+    row[`${m.device}__cpu`] = m.cpu;
+    row[`${m.device}__ram`] = m.ram;
+    timelineMap.set(ts, row);
   });
 
-  const chartData = Object.entries(timelineMap)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([time, devs]) => ({
-      time,
-      ...Object.fromEntries(
-        Object.entries(devs).flatMap(([dev, vals]) => [
-          [`${dev}__cpu`, vals.cpu],
-          [`${dev}__ram`, vals.ram],
-        ])
-      ),
-    }));
+  const chartData = [...timelineMap.values()].sort((a, b) => a.ts - b.ts);
 
   // Anomalies come from /api/dashboard — already have correct device field
   // Filter to selected devices only
@@ -129,7 +132,10 @@ export default function Dashboard() {
 
   const latestPerDevice: Record<string, MetricPoint> = {};
   filteredMetrics.forEach((m) => {
-    if (!latestPerDevice[m.device] || m.timestamp > latestPerDevice[m.device].timestamp)
+    if (
+      !latestPerDevice[m.device] ||
+      parseTs(m.timestamp) > parseTs(latestPerDevice[m.device].timestamp)
+    )
       latestPerDevice[m.device] = m;
   });
 
@@ -143,23 +149,32 @@ export default function Dashboard() {
 
   const periodLabel = hours === 0 ? "all time" : hours < 24 ? `${hours}h` : `${hours / 24}d`;
 
-  function AnomalyDots({ field }: { field: "cpu" | "ram" }) {
-    return (
-      <>
-        {filteredAnomalies.map((a) => (
-          <ReferenceDot
-            key={`${a.id}-${field}`}
-            x={formatTime(a.timestamp)}
-            y={field === "cpu" ? a.cpu : a.ram}
-            r={5}
-            fill="#f87171"
-            stroke="#450a0a"
-            strokeWidth={1.5}
-          />
-        ))}
-      </>
-    );
-  }
+  // Plain function (not a nested component) so Recharts sees <ReferenceDot>
+  // as direct children of <LineChart>.
+  const renderAnomalyDots = (field: "cpu" | "ram") =>
+    filteredAnomalies.map((a) => (
+      <ReferenceDot
+        key={`${a.id}-${field}`}
+        x={toBucket(a.timestamp)}
+        y={field === "cpu" ? a.cpu : a.ram}
+        r={5}
+        fill="#f87171"
+        stroke="#450a0a"
+        strokeWidth={1.5}
+      />
+    ));
+
+  // Shared numeric time axis props for both charts
+  const xAxisProps = {
+    dataKey: "ts",
+    type: "number" as const,
+    scale: "time" as const,
+    domain: ["dataMin", "dataMax"] as [string, string],
+    tickFormatter: (ts: number) => fmtTick(ts, hours),
+    tick: { fontSize: 10, fill: "#475569" },
+    tickLine: false,
+    axisLine: false,
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans">
@@ -270,7 +285,7 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height={230}>
                   <LineChart data={chartData} syncId="sync-charts" margin={{ top: 4, right: 4, bottom: 0, left: -22 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.05)" />
-                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: "#475569" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                    <XAxis {...xAxisProps} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#475569" }} tickLine={false} axisLine={false} />
                     <Tooltip content={<ChartTooltip anomalies={filteredAnomalies} />} />
                     <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} formatter={(v) => String(v).replace("__cpu", "")} />
@@ -278,7 +293,7 @@ export default function Dashboard() {
                       <Line key={`${dev}__cpu`} type="monotone" dataKey={`${dev}__cpu`} name={`${dev}__cpu`}
                         stroke={deviceColorMap[dev]} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} connectNulls />
                     ))}
-                    <AnomalyDots field="cpu" />
+                    {renderAnomalyDots("cpu")}
                   </LineChart>
                 </ResponsiveContainer>
               )}
@@ -301,7 +316,7 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height={230}>
                   <LineChart data={chartData} syncId="sync-charts" margin={{ top: 4, right: 4, bottom: 0, left: -22 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.05)" />
-                    <XAxis dataKey="time" tick={{ fontSize: 10, fill: "#475569" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
+                    <XAxis {...xAxisProps} />
                     <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: "#475569" }} tickLine={false} axisLine={false} />
                     <Tooltip content={<ChartTooltip anomalies={filteredAnomalies} />} />
                     <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} formatter={(v) => String(v).replace("__ram", "")} />
@@ -309,7 +324,7 @@ export default function Dashboard() {
                       <Line key={`${dev}__ram`} type="monotone" dataKey={`${dev}__ram`} name={`${dev}__ram`}
                         stroke={deviceColorMap[dev]} strokeWidth={1.5} dot={false} activeDot={{ r: 3 }} connectNulls />
                     ))}
-                    <AnomalyDots field="ram" />
+                    {renderAnomalyDots("ram")}
                   </LineChart>
                 </ResponsiveContainer>
               )}

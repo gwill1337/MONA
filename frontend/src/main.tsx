@@ -7,6 +7,7 @@ import UserBoard from './pages/UserBoard'
 import './index.css'
 import ProtectedRoute from './ProtectedRoute'
 import Login from './Login'
+import { ApiKeyTest } from './pages/Mcp'
 
 createRoot(document.getElementById('root')!).render(
     <StrictMode>
@@ -43,6 +44,14 @@ createRoot(document.getElementById('root')!).render(
                     }
                 />
 
+                <Route
+                    path="/mcp"
+                    element={
+                        <ProtectedRoute>
+                            <ApiKeyTest />
+                        </ProtectedRoute>
+                    }
+                />
                 <Route
                     path="/userboard"
                     element={

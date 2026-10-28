@@ -1,20 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type TaskStatus, type ModelInfo, type TrainPhase, type TrainResponse, type TaskResultPayload } from "../types/Types";
 import { apiFetch } from "../api";
+import { parseTs } from "../helpers/helpers";
 import { AlertTriangle, BrainCircuit, ChevronDown, Trash2, X, Zap } from "lucide-react";
+
+// Backend timestamps may come without a timezone — parseTs treats them as UTC
+const fmtDateTime = (iso: string) => new Date(parseTs(iso)).toLocaleString("ru-RU");
+const fmtDate = (iso: string) => new Date(parseTs(iso)).toLocaleDateString("ru-RU");
 
 export function ModelPanel({ onTrained }: { onTrained: () => void }) {
     const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null);
     const [trainHours, setTrainHours] = useState("1");
     const [trainNote, setTrainNote] = useState("");
     const [phase, setPhase] = useState<TrainPhase>({ kind: "idle" });
+    const [lastAction, setLastAction] = useState<"train" | "delete">("train");
     const [deleting, setDeleting] = useState(false);
     const [expanded, setExpanded] = useState(false);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const fetchModelInfo = useCallback(async () => {
         try {
-            const res = await apiFetch<ModelInfo>("/api/v1/model-info");
+            // apiFetch already prepends API + API_VERSION
+            const res = await apiFetch<ModelInfo>("/model-info");
             setModelInfo(res);
         } catch { }
     }, []);
@@ -54,7 +61,6 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
                     }
 
                     stop();
-                    await fetchModelInfo();
 
                     const infoRes = await apiFetch<ModelInfo>("/model-info");
                     const info: ModelInfo = infoRes ?? { status: "no_model" };
@@ -97,10 +103,11 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
                 setPhase({ kind: "error", text: "Training timed out. Check Celery worker logs." });
             }
         }, INTERVAL);
-    }, [fetchModelInfo, onTrained]);
+    }, [onTrained]);
 
     const handleTrain = async () => {
         if (pollRef.current) return;
+        setLastAction("train");
         const prevPoints = modelInfo?.model?.points_count ?? 0;
         setPhase({ kind: "submitting" });
         try {
@@ -123,33 +130,27 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
             if (e.status === 403) {
                 setPhase({ kind: "error", text: "Training the model requires admin privileges" });
             } else {
-                setPhase({ kind: "error", text: `error: ${e.message}`})
+                setPhase({ kind: "error", text: `error: ${e.message}` });
             }
-
         }
     };
 
     const handleDelete = async () => {
         if (!confirm("Reset model and return to auto-mode?")) return;
+        setLastAction("delete");
         setDeleting(true);
         try {
-            await apiFetch("/api/v1/model", {
-                method: "DELETE",
-            });
+            // apiFetch already prepends API + API_VERSION
+            await apiFetch("/model", { method: "DELETE" });
             await fetchModelInfo();
             setPhase({ kind: "success", text: "Model deleted. Switched to auto-mode." });
             onTrained();
         } catch (e: any) {
-            if (e.response?.status === 403) {
+            // apiFetch throws ApiError { message, status }
+            if (e.status === 403) {
                 setPhase({ kind: "error", text: "Deleting the model requires admin privileges" });
             } else {
-                const d = e.response?.data ?? {};
-                const detail = d.detail;
-                const message =
-                    typeof detail === "string"
-                        ? detail
-                        : detail?.message ?? e.message ?? "Unknown error";
-                setPhase({ kind: "error", text: `Failed to delete: ${message}` });
+                setPhase({ kind: "error", text: `Failed to delete: ${e.message ?? "Unknown error"}` });
             }
         } finally { setDeleting(false); }
     };
@@ -203,7 +204,9 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
             <div className="rounded-lg px-3 py-2.5 bg-red-500/10 border border-red-500/20 space-y-1">
                 <div className="flex items-center gap-2">
                     <AlertTriangle size={12} className="text-red-400 shrink-0" />
-                    <span className="text-xs text-red-400 font-medium flex-1">Training failed</span>
+                    <span className="text-xs text-red-400 font-medium flex-1">
+                        {lastAction === "delete" ? "Delete failed" : "Training failed"}
+                    </span>
                     <button onClick={() => setPhase({ kind: "idle" })} className="text-red-700 hover:text-red-400 transition-colors">
                         <X size={11} />
                     </button>
@@ -234,7 +237,7 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
                         {isTraining
                             ? "Celery worker is processing the task"
                             : hasModel
-                                ? `Trained on ${modelInfo!.model!.points_count} pts · ${new Date(modelInfo!.model!.trained_at).toLocaleDateString("ru-RU")}`
+                                ? `Trained on ${modelInfo!.model!.points_count} pts · ${fmtDate(modelInfo!.model!.trained_at)}`
                                 : "No manual model. Train on a clean period."}
                     </p>
                 </div>
@@ -245,8 +248,8 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
                 <div className="px-4 pb-4 space-y-3 border-t border-slate-700/30 pt-3">
                     {hasModel && modelInfo?.model && (
                         <div className="text-[11px] text-slate-400 font-mono space-y-0.5 bg-slate-900/40 rounded-lg p-3">
-                            <p>Trained: {new Date(modelInfo.model.trained_at).toLocaleString("ru-RU")}</p>
-                            <p>Period: {new Date(modelInfo.model.period_from).toLocaleString("ru-RU")} → {new Date(modelInfo.model.period_to).toLocaleString("ru-RU")}</p>
+                            <p>Trained: {fmtDateTime(modelInfo.model.trained_at)}</p>
+                            <p>Period: {fmtDateTime(modelInfo.model.period_from)} → {fmtDateTime(modelInfo.model.period_to)}</p>
                             {modelInfo.model.note && <p>Note: {modelInfo.model.note}</p>}
                         </div>
                     )}

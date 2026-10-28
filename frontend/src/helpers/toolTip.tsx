@@ -1,15 +1,21 @@
 import { AlertTriangle } from "lucide-react";
-import { formatTime } from "./helpers";
+import { toBucket } from "./helpers";
 import type { Anomaly } from "../types/Types";
 
 export function ChartTooltip({ active, payload, label, anomalies }: {
-  active?: boolean; payload?: any[]; label?: string; anomalies: Anomaly[];
+  active?: boolean; payload?: any[]; label?: number | string; anomalies: Anomaly[];
 }) {
   if (!active || !payload?.length) return null;
-  const matching = anomalies.filter((a) => formatTime(a.timestamp) === label);
+
+  // label is now the bucketed epoch ms from the X axis (dataKey="ts")
+  const ts = Number(label);
+  const matching = anomalies.filter((a) => toBucket(a.timestamp) === ts);
+
   return (
     <div className="rounded-xl border border-slate-700/60 bg-slate-900/98 p-3 shadow-2xl min-w-45">
-      <p className="text-[10px] text-slate-400 mb-2 font-mono">{label}</p>
+      <p className="text-[10px] text-slate-400 mb-2 font-mono">
+        {Number.isFinite(ts) ? new Date(ts).toLocaleString("ru-RU") : String(label)}
+      </p>
       {payload.map((e: any) => (
         <div key={e.dataKey} className="flex items-center gap-2 mb-1">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ background: e.color }} />
