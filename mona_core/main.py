@@ -49,6 +49,7 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics", tags=["Prometh
 
 # ─── API endpoints ──────────────────────────────────────────────────────────
 from mona_core.routers import (  # noqa: F401 E402
+    api,
     dashboard,
     devices,
     health,

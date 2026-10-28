@@ -91,3 +91,12 @@ class Users(Base):
         return bcrypt.checkpw(
             password.encode("utf-8"), self.password_hash.encode("utf-8")
         )
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[int_pk]
+    key_hash: Mapped[str]
+    name: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))

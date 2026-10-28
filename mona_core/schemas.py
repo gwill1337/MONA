@@ -175,3 +175,7 @@ class LivenessProbe(BaseModel):
 
 class ReadinessProbe(BaseModel):
     status: Literal["ready"]
+
+
+class ApiKeyCreate(BaseModel):
+    name: str
