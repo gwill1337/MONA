@@ -56,14 +56,14 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
     ports:
-      - "8000:8000"  # Порт, по которому Claude Desktop будет стучаться в MCP по SSE
+      - "30082:8000"  # Порт, по которому Claude Desktop будет стучаться в MCP по SSE
     volumes:
       - ..:/app
       - api_venv:/app/.venv
     working_dir: /app/mcp  # Указываем рабочей директорией папку с MCP
     command: uv run python main.py
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/sse')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:30082/sse')"]
       interval: 10s
       timeout: 5s
       retries: 5

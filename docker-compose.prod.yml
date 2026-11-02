@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   # ─── PostgreSQL ─────────────────────────────────────────────────────────
   postgres:
@@ -10,9 +12,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    # Uncomment only if you need psql access from the host:
-    # ports:
-    #   - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?set POSTGRES_USER in .env} -d ${POSTGRES_DB:?set POSTGRES_DB in .env}"]
       interval: 5s
@@ -58,7 +57,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-mydb}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: ${database_url:-}
+      REDIS_URL: ${redis_url:-redis://redis:6379}
       CORS_ORIGINS: ${CORS_ORIGINS:-["http://localhost:30081"]}
       ADMIN_USERNAMES: ${ADMIN_USERNAMES:-admin}
       ADMIN_PASSWORDS: ${ADMIN_PASSWORDS:?set ADMIN_PASSWORDS in .env}
@@ -75,6 +75,46 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    networks:
+      - mona
+
+  # ─── MCP server (SSE) ───────────────────────────────────────────────
+  mcp:
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.mcp
+    image: mona-mcp:local
+    container_name: mona-mcp
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      POSTGRES_USER: ${POSTGRES_USER:-myuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-mydb}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      DATABASE_URL: ${database_url:-}
+      REDIS_URL: ${redis_url:-redis://redis:6379}
+      MONA_API_URL: http://api:8000
+      PROMETHEUS_URL: http://prometheus:9090
+    ports:
+      - "30082:8000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 8000), timeout=2).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     networks:
       - mona
 
@@ -100,10 +140,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-mydb}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: ${database_url:-}
+      REDIS_URL: ${redis_url:-redis://redis:6379}
       PROMETHEUS_URL: http://prometheus:9090
-      # Comma-separated jobName:host pairs for physical PCs, e.g. "pc-test:10.0.0.8"
-      # Leave empty and manage devices via the Admin panel instead, if you prefer.
       EXPORTERS: ${EXPORTERS:-}
     command: celery -A mona_core.celery_conf worker --loglevel=info
     healthcheck:
@@ -135,7 +174,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-mydb}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
-      REDIS_URL: redis://redis:6379
+      DATABASE_URL: ${database_url:-}
+      REDIS_URL: ${redis_url:-redis://redis:6379}
     command: celery -A mona_core.celery_conf beat --loglevel=info -s /tmp/celerybeat-schedule
     volumes:
       - celerybeat-tmp:/tmp
@@ -168,13 +208,7 @@ services:
     networks:
       - mona
 
-  # ─── Prometheus — MONA's OWN product monitoring (physical PCs) ────────
-  # This is NOT cluster/infra monitoring — there is no Grafana, Loki,
-  # Alertmanager or kube-prometheus-stack equivalent here. Those exist
-  # only in the Helm/Terraform deployment for observing the k8s cluster
-  # itself. This Prometheus instance scrapes the monitored devices via
-  # node-exporter, same as the "Prometheus(Monitoring devices)" in the
-  # k8s setup — it's core product functionality, not infra tooling.
+  # ─── Prometheus — MONA'S OWN product monitoring (physical PCs) ────────
   prometheus:
     image: prom/prometheus:v2.55.1
     container_name: mona-prometheus

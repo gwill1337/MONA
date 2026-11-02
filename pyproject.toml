@@ -19,6 +19,9 @@ dependencies = [
 [tool.ruff]
 line-length = 88
 target-version = "py314"
+exclude = [
+    "prompts.py",
+]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "S"]
@@ -77,6 +80,10 @@ docker-fastapi = [
     "fastapi>=0.141.1",
     "prometheus-fastapi-instrumentator>=8.1.0",
     "uvicorn>=0.52.4",
+]
+mcp = [
+    "fastmcp>=2.14.6",
+    "httpx2>=2.12.0",
 ]
 worker = [
     "numpy>=2.5.1",

@@ -21,3 +21,12 @@ grafana_admin_password = "admin123"
 LOG_LEVEL_FASTAPI = ""
 LOG_LEVEL_CELERY_BEAT = ""
 LOG_LEVEL_CELERY_WORKER = ""
+
+# Enable Postgres and Redis. If disabled, MONA uses an external service. 
+# For external Postgres (such as Supabase, etc.), an IPv4 address is required.
+# To use an external service, set the flag to false.
+postgres_enabled      = true
+external_postgres_url = ""
+migration_enabled     = true
+redis_enabled         = true
+external_redis_url    = ""

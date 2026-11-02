@@ -55,3 +55,23 @@ variable "LOG_LEVEL_CELERY_BEAT" {
 variable "LOG_LEVEL_CELERY_WORKER" {
   type = string
 }
+
+variable "postgres_enabled" {
+  type = bool
+}
+
+variable "external_postgres_url" {
+  type = string
+}
+
+variable "migration_enabled" {
+  type = bool
+}
+
+variable "redis_enabled" {
+  type = bool
+}
+
+variable "external_redis_url" {
+  type = string
+}

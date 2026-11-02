@@ -60,6 +60,10 @@ resource "kind_cluster" "mona_cluster" {
         host_port      = 30081
       }
       extra_port_mappings {
+        container_port = 30082
+        host_port      = 30082
+      }
+      extra_port_mappings {
         container_port = 30091
         host_port      = 30091
       }
@@ -71,6 +75,7 @@ resource "kind_cluster" "mona_cluster" {
         container_port = 30391
         host_port      = 30391
       }
+
     }
   }
 }
@@ -84,7 +89,7 @@ resource "null_resource" "kind_load_images" {
   }
 
   provisioner "local-exec" {
-    command = "kind load docker-image mona-fastapi:local mona-celery:local mona-react:local --name ${kind_cluster.mona_cluster.name}"
+    command = "kind load docker-image mona-fastapi:local mona-celery:local mona-react:local mona-mcp:local --name ${kind_cluster.mona_cluster.name}"
   }
 
   depends_on = [kind_cluster.mona_cluster]
@@ -160,6 +165,27 @@ resource "helm_release" "mona_app" {
   set {
     name  = "postgres.service.port"
     value = var.postgres_port
+  }
+
+  set {
+    name  = "postgres.enabled"
+    value = var.postgres_enabled
+  }
+  set_sensitive {
+    name  = "postgres.external.url"
+    value = var.external_postgres_url
+  }
+  set {
+    name  = "migration.enabled"
+    value = var.migration_enabled
+  }
+  set {
+    name  = "redis.enabled"
+    value = var.redis_enabled
+  }
+  set_sensitive {
+    name  = "redis.external.url"
+    value = var.external_redis_url
   }
 
   set_sensitive {

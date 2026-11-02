@@ -9,6 +9,7 @@ help:
 build:
 	@echo "=== Building Docker images ==="
 	docker build -t mona-fastapi:local -f ./docker/Dockerfile.fastapi .
+	docker build -t mona-mcp:local -f ./docker/Dockerfile.mcp .
 	docker build -t mona-react:local -f ./docker/Dockerfile.react .
 	docker build -t mona-celery:local -f ./docker/Dockerfile.celery .
 
