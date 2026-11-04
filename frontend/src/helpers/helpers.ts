@@ -23,15 +23,33 @@ export function setUrlDevices(devices: string[]) {
   window.history.replaceState(null, "", newUrl);
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Time helpers ─────────────────────────────────────────────────────────────
+// Append Z if there is no timezone info, so the backend's naive timestamps are
+// treated as UTC and not shifted by the browser's local zone.
+function withTz(iso: string) {
+  return /[Zz]|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + "Z";
+}
+
+// ISO string -> epoch ms (UTC-safe)
+export function parseTs(iso: string) {
+  return new Date(withTz(iso)).getTime();
+}
+
+// Bucket size for the chart X axis. Points of different devices that fall into
+// the same bucket share one X position. Lower it if agents report more often
+// than once per minute.
+export const BUCKET_MS = 60_000;
+
+export function toBucket(iso: string) {
+  return Math.floor(parseTs(iso) / BUCKET_MS) * BUCKET_MS;
+}
+
+// ─── Formatting ───────────────────────────────────────────────────────────────
 export function formatTime(iso: string) {
-  // Append Z if no timezone info to treat as UTC and avoid local-shift
-  const s = /[Zz]|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + "Z";
-  return new Date(s).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return new Date(withTz(iso)).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 export function formatDateTime(iso: string) {
-  const s = /[Zz]|[+-]\d{2}:\d{2}$/.test(iso) ? iso : iso + "Z";
-  return new Date(s).toLocaleString("ru-RU", {
+  return new Date(withTz(iso)).toLocaleString("ru-RU", {
     day: "2-digit", month: "2-digit",
     hour: "2-digit", minute: "2-digit", second: "2-digit",
   });

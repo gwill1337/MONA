@@ -1,5 +1,16 @@
 # use this as an example for terraform.tfvars 
 
+# ML settings.
+window = 500
+min_points = 30
+contamination = 0.05
+score_threshold = -0.05
+
+# Limiter settings.
+max_attempts = 5
+lockout_seconds = 300
+session_ttl = 43200
+
 # Telegram alerts
 telegram_bot_token     = ""
 telegram_chat_id       = ""
@@ -8,6 +19,9 @@ admin_username         = ["admin", "admin2"]
 admin_password         = ["admin123", "test_123"]
 user_username          = ["user1"]
 user_password          = ["userpass1"]
+
+# Comma-separated jobName:host pairs for physical PCs, e.g. "pc-office:10.0.0.8,pc-lab:10.0.0.9"
+exporters = "pc-home:10.0.0.10,pc-test:10.0.0.8,pc-test2:10.0.1.1"
 
 # Password for postgres generates automatically during terraform deploy via terraform
 postgres_user          = "myuser"
@@ -21,3 +35,12 @@ grafana_admin_password = "admin123"
 LOG_LEVEL_FASTAPI = ""
 LOG_LEVEL_CELERY_BEAT = ""
 LOG_LEVEL_CELERY_WORKER = ""
+
+# Enable Postgres and Redis. If disabled, MONA uses an external service. 
+# For external Postgres (such as Supabase, etc.), an IPv4 address is required.
+# To use an external service, set the flag to false.
+postgres_enabled      = true
+external_postgres_url = ""
+migration_enabled     = true
+redis_enabled         = true
+external_redis_url    = ""

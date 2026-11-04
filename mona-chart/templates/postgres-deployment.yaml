@@ -1,3 +1,4 @@
+{{- if .Values.postgres.enabled -}}
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -74,3 +75,4 @@ spec:
       targetPort: {{ .Values.postgres.service.port }}
   selector:
     app: postgres-pod
+{{- end -}}

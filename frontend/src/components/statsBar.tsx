@@ -14,7 +14,7 @@ export function StatsBar({ devices }: { devices: Device[] }) {
       ].map((s) => (
         <div
           key={s.label}
-          className="rounded-xl border border-slate-700/40 bg-slate-900/40 px-4 py-3 text-center"
+          className="rounded-xl border border-slate-700/40 bg-gray-400/5 px-4 py-3 text-center"
         >
           <p className={`text-2xl font-bold tabular-nums ${s.color}`}>{s.value}</p>
           <p className="text-xs text-slate-500 mt-0.5 uppercase tracking-widest">{s.label}</p>

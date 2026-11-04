@@ -1,64 +1,51 @@
-"""
-ml.py — anomaly detection via Isolation Forest.
-
-Two modes:
-  1. Trained model exists in DB (trained_by="user") → use it.
-     The model knows what the "norm" is — higher accuracy.
-  2. No model → train on the fly on the last WINDOW points (fallback).
-
-Features (6 items):
-  cpu, ram                — absolute values
-  cpu_d1, ram_d1          — change from the previous point
-  cpu_d5, ram_d5          — change over 5 points (~25 sec)
-"""
-
-# import pickle
 import logging
 from datetime import UTC, datetime, timedelta
 
 import numpy as np
-import skops.io as sio
-from sklearn.ensemble import IsolationForest
-from sklearn.preprocessing import StandardScaler
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import Session
 
+from mona_core.anomaly_core import (
+    ANOMALY_EXCLUSION_AFTER_MINUTES,
+    MAX_TRAINING_GAP_SECONDS,
+    build_features_segmented,
+    fit_detector,
+    known_anomaly_mask,
+    load_active_model,
+    offline_mask,
+    to_epoch,
+    training_blocks,
+)
 from mona_core.celery_conf import app
 from mona_core.config import settings
-from mona_core.db import Anomaly, Metric, SessionLocal, TrainedModel
+from mona_core.db import Anomaly, Metric, SessionLocal
 
-# ─── Logger ─────────────────────────────────────────────────────────────────
 logger = logging.getLogger(__name__)
 
-# ─── Helpers ────────────────────────────────────────────────────────────────
+DETECTION_LOOKBACK_MINUTES = 5
+WEAK_COMBINED_LIMIT = 80
+ANOMALY_HISTORY_MARGIN = timedelta(
+    minutes=ANOMALY_EXCLUSION_AFTER_MINUTES,
+    seconds=MAX_TRAINING_GAP_SECONDS,
+)
 
 
-def _build_features(rows):
-    """
-    Builds a feature matrix with deltas.
-    Returns an np.array of shape (N, 6).
-    """
-    cpu = np.array([r.cpu for r in rows], dtype=float)
-    ram = np.array([r.ram for r in rows], dtype=float)
+def _describe_reason(
+    cpu: float,
+    ram: float,
+    cpu_d1: float,
+    ram_d1: float,
+    cpu_d5: float,
+    ram_d5: float,
+) -> str | None:
+    """Explain a detected anomaly; None when no single factor stands out."""
+    parts: list[str] = []
 
-    # Delta from the previous point (i-1)
-    cpu_d1 = np.concatenate([[0], np.diff(cpu)])
-    ram_d1 = np.concatenate([[0], np.diff(ram)])
-
-    # Delta from 5 points ago
-    cpu_d5 = np.concatenate([[0] * 5, cpu[5:] - cpu[:-5]])
-    ram_d5 = np.concatenate([[0] * 5, ram[5:] - ram[:-5]])
-
-    return np.column_stack([cpu, ram, cpu_d1, ram_d1, cpu_d5, ram_d5])
-
-
-def _describe_reason(row, cpu_d1, ram_d1, cpu_d5, ram_d5):
-    """Human-readable description of why the point is anomalous."""
-    parts = []
-
-    if row.cpu > 85:
-        parts.append(f"high cpu={row.cpu:.1f}%")
-    if row.ram > 85:
-        parts.append(f"high ram={row.ram:.1f}%")
+    if cpu > 85:
+        parts.append(f"high cpu={cpu:.1f}%")
+    if ram > 85:
+        parts.append(f"high ram={ram:.1f}%")
 
     if abs(cpu_d1) > 20:
         sign = "▲" if cpu_d1 > 0 else "▼"
@@ -68,145 +55,189 @@ def _describe_reason(row, cpu_d1, ram_d1, cpu_d5, ram_d5):
         parts.append(f"sudden ram change {sign}{abs(ram_d1):.1f}%")
 
     if abs(cpu_d5) > 30:
-        parts.append(f"cpu changed by {cpu_d5:.1f}% in 25 sec")
+        parts.append(f"cpu changed by {cpu_d5:+.1f}% over 5 samples")
     if abs(ram_d5) > 20:
-        parts.append(f"ram changed by {ram_d5:.1f}% in 25 sec")
+        parts.append(f"ram changed by {ram_d5:+.1f}% over 5 samples")
 
-    if not parts:
-        parts.append(f"combined anomaly (cpu={row.cpu:.1f}%, ram={row.ram:.1f}%)")
-
-    return ", ".join(parts)
+    return ", ".join(parts) or None
 
 
-def _load_user_model(db):
-    """Loads the latest model trained by the user. None if it doesn't exist."""
-    # record = (
-    #     db.query(TrainedModel)
-    #     .filter(TrainedModel.trained_by == "user")
-    #     .order_by(TrainedModel.trained_at.desc())
-    #     .first()
-    # )
-    record = (
-        db.execute(
-            select(TrainedModel)
-            .where(TrainedModel.trained_by == "user")
-            .order_by(TrainedModel.trained_at.desc())
-            .limit(1)
-        )
-        .scalars()
-        .first()
-    )
-    if record is None:
+def _load_user_model(db: Session):
+    """Load the active user model, falling back to auto-mode if it cannot be read."""
+    try:
+        return load_active_model(db)
+    except Exception:
+        logger.exception("Cannot load the active user model; using auto-mode")
         return None, None
-    untrusted_types = sio.get_untrusted_types(data=record.model_data)
-    model, scaler = sio.loads(record.model_data, trusted=untrusted_types)
-    return model, scaler
 
 
-# ─── Tasks ──────────────────────────────────────────────────────────────────
-
-
-@app.task
+@app.task(name="ml.detect_anomalies")
 def detect_anomalies():
-    """Detects anomalies in the last WINDOW metric points for EACH device."""
     db = SessionLocal()
     try:
-        cutoff_new = datetime.now(UTC) - timedelta(minutes=2)
+        cutoff_new = (
+            datetime.now(UTC) - timedelta(minutes=DETECTION_LOOKBACK_MINUTES)
+        ).timestamp()
 
         user_model, user_scaler = _load_user_model(db)
+        user_detector = (
+            None
+            if user_model is None or user_scaler is None
+            else (user_model, user_scaler)
+        )
+        mode = "auto" if user_detector is None else "user_model"
 
-        existing_ids = set(db.execute(select(Anomaly.metric_id)).scalars().all())
-
-        distinct_devices = [
-            d for d in db.execute(select(Metric.device).distinct()).scalars().all() if d
+        devices = [
+            device
+            for device in db.scalars(select(Metric.device).distinct()).all()
+            if device
         ]
 
-        new_anomalies = []
-        mode = "skipped"
+        new_anomalies: list[dict] = []
+        devices_checked = 0
 
-        for device in distinct_devices:
-            rows = (
-                db.execute(
-                    select(Metric)
-                    .where(Metric.device == device, Metric.cpu > 0.1)
-                    .order_by(Metric.timestamp.desc())
-                    .limit(settings.window)
+        for device in devices:
+            rows_desc = db.scalars(
+                select(Metric)
+                .where(Metric.device == device)
+                .order_by(Metric.timestamp.desc())
+                .limit(settings.window)
+            ).all()
+
+            if len(rows_desc) < settings.min_points:
+                logger.debug(
+                    "%s: not enough metric points (%d/%d)",
+                    device,
+                    len(rows_desc),
+                    settings.min_points,
                 )
-                .scalars()
-                .all()
-            )
-
-            if len(rows) < settings.min_points:
                 continue
 
-            rows = list(reversed(rows))
-            X_all = _build_features(rows)  # noqa: N806
+            rows = list(reversed(rows_desc))
+            ts = to_epoch(row.timestamp for row in rows)
+            cpu = np.asarray([row.cpu for row in rows], dtype=float)
+            ram = np.asarray([row.ram for row in rows], dtype=float)
+            features = build_features_segmented(ts, cpu, ram)
+            offline = offline_mask(cpu, ram)
 
-            if user_model is not None and user_scaler is not None:
-                # ── Mode 1: custom user model ──
-                X_scaled = user_scaler.transform(X_all)  # noqa: N806
-                preds = user_model.predict(X_scaled)
-                scores = user_model.decision_function(X_scaled)
-                mode = "user_model"
-                logger.info("Model switched to user model")
+            recent_mask = ts >= cutoff_new
+            recent_indices = np.flatnonzero(recent_mask).tolist()
+            if not recent_indices:
+                continue
+
+            excluded_count = 0
+            if user_detector is not None:
+                model, scaler = user_detector
+                train_count = 0
             else:
-                # ── Mode 2: on-the-fly training per device (fallback) ──
-                scaler = StandardScaler()
-                X_scaled = scaler.fit_transform(X_all)  # noqa: N806
-                model = IsolationForest(
-                    n_estimators=200,
-                    contamination=settings.contamination,
-                    random_state=42,
+                known_times = db.scalars(
+                    select(Anomaly.timestamp).where(
+                        Anomaly.device == device,
+                        Anomaly.timestamp >= rows[0].timestamp - ANOMALY_HISTORY_MARGIN,
+                    )
+                ).all()
+                excluded = known_anomaly_mask(ts, cpu, ram, known_times)
+                excluded_count = int((excluded & ~recent_mask).sum())
+
+                x_train, _ = training_blocks(ts, cpu, ram, ~recent_mask & ~excluded)
+                train_count = len(x_train)
+                if train_count < settings.min_points:
+                    logger.debug(
+                        "%s: not enough clean contiguous points for auto-mode (%d/%d)",
+                        device,
+                        train_count,
+                        settings.min_points,
+                    )
+                    continue
+
+                model, scaler = fit_detector(x_train)
+
+            scaled = scaler.transform(features[recent_indices])
+            predictions = model.predict(scaled)
+            scores = model.decision_function(scaled)
+
+            logger.debug(
+                "%s | mode=%s | total=%d | train=%d | excluded_known_anomaly=%d | checked=%d | predicted_anomalies=%d",
+                device,
+                mode,
+                len(rows),
+                train_count,
+                excluded_count,
+                len(recent_indices),
+                int(np.count_nonzero(predictions == -1)),
+            )
+            devices_checked += 1
+
+            metric_ids = [rows[i].id for i in recent_indices if rows[i].id is not None]
+            existing_ids = (
+                set(
+                    db.scalars(
+                        select(Anomaly.metric_id).where(
+                            Anomaly.metric_id.in_(metric_ids)
+                        )
+                    ).all()
                 )
-                preds = model.fit_predict(X_scaled)
-                scores = model.decision_function(X_scaled)
-                mode = "auto"
-                logger.info("Model switched to mode auto")
+                if metric_ids
+                else set()
+            )
 
-            for i, row in enumerate(rows):
-                if mode == "auto" and row.timestamp < cutoff_new.replace(tzinfo=None):
+            for position, index in enumerate(recent_indices):
+                if predictions[position] != -1:
+                    continue
+                score = float(scores[position])
+                if score >= settings.score_threshold:
                     continue
 
-                is_anomaly = (preds[i] == -1) and (scores[i] < settings.score_threshold)
-
-                if not is_anomaly or row.id in existing_ids:
+                row = rows[index]
+                if row.id in existing_ids:
+                    continue
+                if offline[index]:
                     continue
 
-                cpu_d1, ram_d1 = X_all[i, 2], X_all[i, 3]
-                cpu_d5, ram_d5 = X_all[i, 4], X_all[i, 5]
-
-                reason = _describe_reason(row, cpu_d1, ram_d1, cpu_d5, ram_d5)
-
-                if "combined" in reason.lower() and row.cpu < 80 and row.ram < 80:
-                    continue
+                reason = _describe_reason(
+                    row.cpu, row.ram, *(float(v) for v in features[index, 2:6])
+                )
+                if reason is None:
+                    if row.cpu < WEAK_COMBINED_LIMIT and row.ram < WEAK_COMBINED_LIMIT:
+                        continue
+                    reason = (
+                        f"combined anomaly (cpu={row.cpu:.1f}%, ram={row.ram:.1f}%)"
+                    )
 
                 new_anomalies.append(
-                    Anomaly(
-                        metric_id=row.id,
-                        cpu=row.cpu,
-                        ram=row.ram,
-                        timestamp=row.timestamp,
-                        reason=reason,
-                        score=round(float(scores[i]), 4),
-                        device=row.device,
-                    )
+                    {
+                        "metric_id": row.id,
+                        "cpu": row.cpu,
+                        "ram": row.ram,
+                        "timestamp": row.timestamp,
+                        "reason": reason,
+                        "score": round(score, 4),
+                        "device": row.device,
+                    }
                 )
 
         if new_anomalies:
-            db.add_all(new_anomalies)
+            db.execute(
+                insert(Anomaly).on_conflict_do_nothing(index_elements=["metric_id"]),
+                new_anomalies,
+            )
             db.commit()
-            logger.info("Found anomalies", extra={"Anomalies": new_anomalies})
+            logger.info(
+                "Saved %d new anomalies across %d checked devices",
+                len(new_anomalies),
+                devices_checked,
+            )
 
         return {
             "status": "ok",
             "mode": mode,
-            "devices_checked": len(distinct_devices),
+            "devices_checked": devices_checked,
             "anomalies_found": len(new_anomalies),
         }
 
     except Exception:
         db.rollback()
-        logger.exception("Server error during detect anomalies")
+        logger.exception("Server error during detect_anomalies")
         return {"status": "error", "error": "Server error"}
     finally:
         db.close()

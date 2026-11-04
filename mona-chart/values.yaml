@@ -39,6 +39,11 @@ images:
     tag: "v3.12.0"
     digest: ""
     pullPolicy: Always
+  mcp:
+    repository: mona-mcp
+    tag: local
+    digest: ""
+    pullPolicy: IfNotPresent
 
 fastapi:
   replicas: 1
@@ -49,6 +54,9 @@ fastapi:
     ADMIN_PASSWORDS: ""
     USER_USERNAMES: ""
     USER_PASSWORDS: ""
+    MAX_ATTEMPTS: 5
+    LOCKOUT_SECONDS: 300
+    SESSION_TTL: 43200
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 10001
@@ -89,6 +97,39 @@ fastapi:
     requests: { cpu: "100m", memory: "128Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
 
+mcp:
+  enabled: true
+  replicas: 1
+  automountServiceAccountToken: false
+  env:
+    LOG_LEVEL: INFO
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+  initContainerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+  service:
+    type: NodePort
+    port: 8000
+    targetPort: 8000
+    nodePort: 30082
+  resources:
+    requests: { cpu: "100m", memory: "256Mi" }
+    limits: { cpu: "500m", memory: "1Gi" }
+
 react:
   replicas: 1
   automountServiceAccountToken: false
@@ -126,6 +167,11 @@ celeryWorker:
   automountServiceAccountToken: false
   env:
     LOG_LEVEL: INFO
+    WINDOW: 500
+    MIN_POINTS: 30
+    CONTAMINATION: 0.05
+    SCORE_THRESHOLD: -0.05
+    EXPORTERS: ""
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 10001
@@ -147,14 +193,24 @@ celeryWorker:
   command: ["celery", "-A", "celery_conf.app", "worker", "--loglevel=info"]
   livenessProbe:
     exec:
-      command: ["/bin/sh", "-c", "celery -A celery_conf.app inspect ping -d celery@$HOSTNAME --timeout 10"]
+      command:
+        [
+          "/bin/sh",
+          "-c",
+          "celery -A celery_conf.app inspect ping -d celery@$HOSTNAME --timeout 10",
+        ]
     initialDelaySeconds: 40
     periodSeconds: 60
     timeoutSeconds: 15
     failureThreshold: 3
   readinessProbe:
     exec:
-      command: ["/bin/sh", "-c", "celery -A celery_conf.app inspect ping -d celery@$HOSTNAME --timeout 10"]
+      command:
+        [
+          "/bin/sh",
+          "-c",
+          "celery -A celery_conf.app inspect ping -d celery@$HOSTNAME --timeout 10",
+        ]
     initialDelaySeconds: 20
     periodSeconds: 30
     timeoutSeconds: 15
@@ -186,12 +242,24 @@ celeryBeat:
     capabilities:
       drop:
         - ALL
-  command: ["celery", "-A", "celery_conf.app", "beat", "--loglevel=info", "-s", "/tmp/celerybeat-schedule"]
+  command:
+    [
+      "celery",
+      "-A",
+      "celery_conf.app",
+      "beat",
+      "--loglevel=info",
+      "-s",
+      "/tmp/celerybeat-schedule",
+    ]
   resources:
     requests: { cpu: "100m", memory: "128Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
 
 postgres:
+  enabled: true
+  external:
+    url: ""
   automountServiceAccountToken: false
   podSecurityContext:
     runAsNonRoot: true
@@ -218,7 +286,18 @@ postgres:
     requests: { cpu: "250m", memory: "256Mi" }
     limits: { cpu: "500m", memory: "512Mi" }
 
+migration:
+  enabled: true
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  resources:
+    requests: { cpu: "100m", memory: "128Mi" }
+    limits: { cpu: "500m", memory: "512Mi" }
+
 redis:
+  enabled: true
+  external:
+    url: ""
   automountServiceAccountToken: false
   podSecurityContext:
     runAsNonRoot: true
@@ -293,14 +372,14 @@ kube-prometheus-stack:
         resolve_timeout: 5m
 
       templates:
-        - '/etc/alertmanager/config/*.tmpl'
+        - "/etc/alertmanager/config/*.tmpl"
 
       route:
-        group_by: ['alertname', 'severity', 'device', 'reason']
+        group_by: ["alertname", "severity", "device", "reason"]
         group_wait: 10s
         group_interval: 20s
         repeat_interval: 15m
-        receiver: 'telegram'
+        receiver: "telegram"
         routes:
           - receiver: "null"
             matchers:

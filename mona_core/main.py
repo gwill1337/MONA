@@ -52,6 +52,7 @@ from mona_core.routers import (  # noqa: F401 E402
     dashboard,
     devices,
     health,
+    mcp,
     model,
     monitoring,
     tasks,

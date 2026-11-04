@@ -9,8 +9,8 @@ interface ConfirmDeleteModalProps {
 export function ConfirmDeleteModal({ device, onClose, onConfirm }: ConfirmDeleteModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm mx-4 rounded-2xl border border-red-500/30 bg-slate-900 shadow-2xl shadow-black/60 overflow-hidden">
+      <div className="absolute inset-0 bg-black/25 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm mx-4 rounded-2xl border border-red-500/30 bg-black shadow-2xl shadow-black/60 overflow-hidden">
         {/* Header glow bar */}
         <div className="h-px w-full bg-linear-to-r from-transparent via-red-500 to-transparent" />
 
@@ -26,13 +26,13 @@ export function ConfirmDeleteModal({ device, onClose, onConfirm }: ConfirmDelete
           <div className="flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-400 text-sm hover:text-white hover:border-slate-600 transition-all"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-400 hover:bg-gray-400/15 text-sm hover:text-white hover:border-slate-600 transition-all"
             >
               Cancel
             </button>
             <button
               onClick={onConfirm}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-red-500 hover:bg-red-400 text-white font-semibold text-sm transition-all shadow-lg shadow-red-500/20"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-red-700 hover:bg-red-600 text-white font-semibold text-sm transition-all shadow-lg shadow-red-500/20"
             >
               Delete
             </button>

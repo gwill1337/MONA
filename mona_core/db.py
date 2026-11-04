@@ -3,8 +3,11 @@ from typing import Annotated, Literal
 
 import bcrypt
 from sqlalchemy import (
+    DateTime,
+    ForeignKey,
     Index,
     LargeBinary,
+    UniqueConstraint,
     create_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
@@ -39,7 +42,9 @@ class Metric(Base):
     cpu: Mapped[float]
     ram: Mapped[float]
     device: Mapped[str] = mapped_column(default="default")
-    timestamp: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
     __table_args__ = (Index("idx_metrics_device_timestamp", "device", "timestamp"),)
 
@@ -48,16 +53,23 @@ class Anomaly(Base):
     __tablename__ = "anomalies"
 
     id: Mapped[int_pk]
-    metric_id: Mapped[int]
+    metric_id: Mapped[int] = mapped_column(ForeignKey("metrics.id", ondelete="CASCADE"))
     cpu: Mapped[float]
     ram: Mapped[float]
-    timestamp: Mapped[datetime]
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
     reason: Mapped[str]
     score: Mapped[float]
     device: Mapped[str]
-    detected_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    detected_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
-    __table_args__ = (Index("idx_anomalies_device_timestamp", "device", "timestamp"),)
+    __table_args__ = (
+        Index("idx_anomalies_device_timestamp", "device", "timestamp"),
+        UniqueConstraint("metric_id", name="uq_anomalies_metric_id"),
+    )
 
 
 class TrainedModel(Base):
@@ -65,12 +77,19 @@ class TrainedModel(Base):
 
     id: Mapped[int_pk]
     model_data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
-    trained_at: Mapped[datetime] = mapped_column(default=lambda: datetime.now(UTC))
+    trained_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
     trained_by: Mapped[str] = mapped_column(default="user")
     points_count: Mapped[int]
-    period_from: Mapped[datetime]
-    period_to: Mapped[datetime]
+    period_from: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    period_to: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
     note: Mapped[str] = mapped_column(nullable=True)
+    is_active: Mapped[bool]
 
 
 class Users(Base):
@@ -91,3 +110,14 @@ class Users(Base):
         return bcrypt.checkpw(
             password.encode("utf-8"), self.password_hash.encode("utf-8")
         )
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id: Mapped[int_pk]
+    key_hash: Mapped[str]
+    name: Mapped[str]
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )

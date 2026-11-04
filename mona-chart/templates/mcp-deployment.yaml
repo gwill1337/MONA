@@ -1,0 +1,123 @@
+{{- if .Values.mcp.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mona-mcp
+  namespace: {{ .Release.Namespace }}
+spec:
+  replicas: {{ .Values.mcp.replicas }}
+  selector:
+    matchLabels:
+      app: mcp
+  template:
+    metadata:
+      labels:
+        app: mcp
+    spec:
+      automountServiceAccountToken: {{ .Values.mcp.automountServiceAccountToken }}
+      securityContext:
+        {{- toYaml .Values.mcp.podSecurityContext | nindent 8 }}
+      enableServiceLinks: false
+      initContainers:
+        # Ждём FastAPI: его init-контейнер прогоняет alembic, т.е. к этому моменту
+        # и Postgres доступен, и таблица ApiKey (нужна auth.py) уже создана.
+        - name: wait-for-fastapi
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            {{- toYaml .Values.mcp.initContainerSecurityContext | nindent 12 }}
+          resources:
+            requests:
+              memory: "16Mi"
+              cpu: "10m"
+            limits:
+              memory: "32Mi"
+              cpu: "50m"
+          command: ['sh', '-c']
+          args:
+            - |
+              until nc -z -w 2 fastapi {{ .Values.fastapi.service.port }}; do
+                echo "Waiting for FastAPI...";
+                sleep 2;
+              done;
+              echo "FastAPI is available!"
+      containers:
+        - name: mcp
+          image: "{{ .Values.images.mcp.repository }}:{{ .Values.images.mcp.tag }}"
+          imagePullPolicy: {{ .Values.images.mcp.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.mcp.containerSecurityContext | nindent 12 }}
+          ports:
+            - containerPort: {{ .Values.mcp.service.targetPort }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.mcp.service.targetPort }}
+            initialDelaySeconds: 15
+            periodSeconds: 15
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.mcp.service.targetPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          env:
+            {{- range $key, $val := .Values.mcp.env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
+            {{- if .Values.redis.enabled }}
+            - name: REDIS_URL
+              value: "redis://redis:6379"
+            {{- else }}
+            - name: REDIS_URL
+              value: {{ .Values.redis.external.url | quote }}
+            {{- end }}
+            {{- if .Values.postgres.enabled }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.auth.user | quote }}
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgres.auth.password | quote }}
+            - name: POSTGRES_HOST
+              value: "postgres"
+            - name: POSTGRES_PORT
+              value: {{ .Values.postgres.service.port | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.auth.db | quote }}
+            {{- else }}
+            - name: DATABASE_URL
+              value: {{ .Values.postgres.external.url | quote }}
+            {{- end }}
+            # health.py / prometheus.py
+            - name: MONA_API_URL
+              value: "http://fastapi.{{ .Release.Namespace }}.svc:{{ .Values.fastapi.service.port }}"
+            - name: PROMETHEUS_URL
+              value: "http://prometheus-main-metrics.{{ .Release.Namespace }}.svc:{{ .Values.prometheus.service.port }}"
+          resources:
+            {{- toYaml .Values.mcp.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: mcp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: mcp
+spec:
+  type: {{ .Values.mcp.service.type }}
+  selector:
+    app: mcp
+  ports:
+    - name: http
+      port: {{ .Values.mcp.service.port }}
+      targetPort: {{ .Values.mcp.service.targetPort }}
+      {{- if eq .Values.mcp.service.type "NodePort" }}
+      nodePort: {{ .Values.mcp.service.nodePort }}
+      {{- end }}
+{{- end }}

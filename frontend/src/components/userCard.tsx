@@ -12,14 +12,14 @@ export function UserCard({ user, index, onClick }: UserCardProps) {
     return (
         <div
             onClick={onClick}
-            className="group relative cursor-pointer rounded-2xl border border-slate-700/50 bg-slate-900/60 hover:bg-slate-800/70 hover:border-slate-600/70 transition-all duration-200 overflow-hidden max-w-48"
+            className="group relative cursor-pointer rounded-2xl border border-slate-700/50 bg-gray-500/15 hover:bg-slate-800/70 hover:border-slate-600/70 transition-all duration-200 overflow-hidden max-w-48"
             style={{ animationDelay: `${index * 60}ms` }}
         >
             <div className="relative p-5">
                 <div className="font-semibold text-white text-base tracking-tight mb-1 group-hover:text-cyan-50 transition-colors">
                     <User2 size={45}/>
                 </div>
-                <p className="absolute top-2 right-5 text-cyan-400 font-semibold">
+                <p className="absolute top-2 right-5 text-white/80 font-semibold">
                     role: {user.role}
                 </p>
 

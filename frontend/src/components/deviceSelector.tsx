@@ -21,7 +21,7 @@ export function DeviceSelector({ devices, selected, onChange, deviceColorMap }: 
 
   const toggle = (name: string) => {
     if (selected.includes(name)) {
-      if (selected.length === 1) return;
+      // if (selected.length === 1) return;
       onChange(selected.filter((d) => d !== name));
     } else {
       onChange([...selected, name]);
@@ -40,28 +40,27 @@ export function DeviceSelector({ devices, selected, onChange, deviceColorMap }: 
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700/60 bg-slate-900/80 text-sm text-slate-200 hover:border-slate-600 transition-all"
+        className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700/60 bg-gray-400/15 text-sm text-slate-200 hover:border-slate-600 transition-all"
       >
-        <Server size={14} className="text-cyan-400 shrink-0" />
+        <Server size={14} className="text-white shrink-0" />
         <span className="max-w-40 truncate">{label}</span>
         <ChevronDown size={13} className={`text-slate-400 transition-transform shrink-0 ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-2 z-50 w-64 rounded-2xl border border-slate-700/60 bg-slate-900 shadow-2xl shadow-black/70 overflow-hidden">
-          <div className="h-px w-full bg-linear-to-r from-transparent via-cyan-500/40 to-transparent" />
+        <div className="absolute top-full left-0 mt-2 z-50 w-64 rounded-2xl border border-slate-700/60 bg-gray-950 shadow-2xl shadow-black/70 overflow-hidden">
           <div className="p-2">
             {/* All toggle */}
             <button
               onClick={() =>
                 allSelected
-                  ? onChange(devices.length > 0 ? [devices[0].name] : [])
+                  ? onChange([])
                   : onChange(devices.map((d) => d.name))
               }
               className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-white hover:bg-slate-800 transition-all mb-1"
             >
               {allSelected
-                ? <CheckSquare size={14} className="text-cyan-400" />
+                ? <CheckSquare size={14} className="text-white" />
                 : <Square size={14} />}
               <span>All devices</span>
             </button>

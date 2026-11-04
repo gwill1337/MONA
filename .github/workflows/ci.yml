@@ -22,7 +22,7 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  
+
   security_iac:
     name: Checkov IaC Scan
     runs-on: ubuntu-latest
@@ -38,7 +38,7 @@ jobs:
           quiet: true
           skip_path: mona-chart/charts
           skip_check: CKV_K8S_21,CKV_K8S_43,CKV2_K8S_6,CKV_K8S_15,CKV_K8S_22
-  
+
   terraform:
     name: Terraform checks
     runs-on: ubuntu-latest
@@ -71,7 +71,7 @@ jobs:
 
       - name: Helm lint
         run: helm lint ./mona-chart
-            
+
   yaml_lint:
     name: YAML lint
     runs-on: ubuntu-latest
@@ -104,7 +104,7 @@ jobs:
       - name: Set up uv
         uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.13'
+          python-version: "3.13"
           enable-cache: true
 
       - name: Install dependencies
@@ -118,7 +118,7 @@ jobs:
 
       - name: Ruff format check
         run: uv run ruff format --check mona_core/
-      
+
       - name: pytest
         run: uv run pytest tests/
 
@@ -135,32 +135,43 @@ jobs:
           docker build -f docker/Dockerfile.celery -t local/celery:test .
           docker build -f docker/Dockerfile.fastapi -t local/fastapi:test .
           docker build -f docker/Dockerfile.react -t local/react:test .
+          docker build -f docker/Dockerfile.mcp -t local/mcp:test .
 
       - name: Scan FastAPI image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'local/fastapi:test'
-          format: 'table'
-          exit-code: '1'
+          image-ref: "local/fastapi:test"
+          format: "table"
+          exit-code: "1"
           ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
-          skip-files: '**/pip/_vendor/bom.cdx.json'
-      
+          severity: "CRITICAL,HIGH"
+          skip-files: "**/pip/_vendor/bom.cdx.json"
+
       - name: Scan Celery image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'local/celery:test'
-          format: 'table'
-          exit-code: '1'
+          image-ref: "local/celery:test"
+          format: "table"
+          exit-code: "1"
           ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
-          skip-files: '**/pip/_vendor/bom.cdx.json'
-      
+          severity: "CRITICAL,HIGH"
+          skip-files: "**/pip/_vendor/bom.cdx.json"
+
+      - name: Scan MCP image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: "local/mcp:test"
+          format: "table"
+          exit-code: "1"
+          ignore-unfixed: true
+          severity: "CRITICAL,HIGH"
+          skip-files: "**/pip/_vendor/bom.cdx.json"
+
       - name: Scan React image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'local/react:test'
-          format: 'table'
-          exit-code: '1'
+          image-ref: "local/react:test"
+          format: "table"
+          exit-code: "1"
           ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
+          severity: "CRITICAL,HIGH"

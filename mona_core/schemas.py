@@ -61,6 +61,7 @@ class DashboardAnomaly(BaseModel):
 
 
 class DashboardMetric(BaseModel):
+    id: int
     timestamp: datetime
     cpu: float
     ram: float
@@ -76,6 +77,7 @@ class AnomalyOut(BaseModel):
 
 
 class ModelInfo(BaseModel):
+    id: int_pk
     trained_at: datetime
     trained_by: str
     points_count: int
@@ -84,6 +86,10 @@ class ModelInfo(BaseModel):
     note: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ModelListOut(BaseModel):
+    items: list[ModelInfo]
 
 
 class ModelInfoOk(BaseModel):
@@ -175,3 +181,7 @@ class LivenessProbe(BaseModel):
 
 class ReadinessProbe(BaseModel):
     status: Literal["ready"]
+
+
+class ApiKeyCreate(BaseModel):
+    name: str

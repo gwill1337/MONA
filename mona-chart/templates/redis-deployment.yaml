@@ -1,3 +1,4 @@
+{{- if .Values.redis.enabled -}}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -45,8 +46,6 @@ spec:
       volumes:
         - name: redis-data
           emptyDir: {}
-          # hostPath:
-          #   path: {{ .Values.redis.persistence.hostPath }}
 
 ---
 
@@ -60,3 +59,4 @@ spec:
     - port: {{ .Values.redis.service.port }}
   selector:
     app: redis-pod
+{{- end -}}

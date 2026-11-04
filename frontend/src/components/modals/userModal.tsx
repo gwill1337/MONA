@@ -158,71 +158,61 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div
-                className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/25 backdrop-blur-sm"
                 onClick={onClose}
             />
-            <div className="relative w-full max-w-md mx-4 rounded-2xl border border-slate-700/60 bg-slate-900 shadow-2xl shadow-black/60 overflow-hidden">
-                <div className="h-px w-full bg-linear-to-r from-transparent via-cyan-500 to-transparent" />
+            <div className="relative w-full max-w-md mx-4 rounded-2xl border border-slate-700/60 bg-black shadow-2xl shadow-black/60 overflow-hidden">
                 <div className="p-6">
                     <div className="flex items-center justify-between mb-6">
-                        <div>
-                            <User2 size={42} />
+                        <div className="flex items-center gap-2">
+                            <User2 size={52} />
+                            <p className="block text-xl font-normal text-white">
+                                Username:{} <span className="font-bold">{user.username}</span>
+                            </p>
                         </div>
                         <button
                             onClick={onClose}
-                            className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800"
+                            className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
                         >
                             <X size={16} />
                         </button>
                     </div>
 
                     <div className="space-y-4">
-                        <div className="w-full rounded-2xl border py-1 px-2 border-slate-700">
-                            <p className="block text-base font-semibold text-white mb-1.5">
+                        <div className="w-full rounded-2xl border py-3 px-4 bg-gray-400/15 border-slate-700">
+                            {/* <p className="block text-base font-semibold text-white mb-1.5">
                                 Username: {user.username}
+                            </p> */}
+                            <p className="block text-base font-normal text-white mb-1.5">
+                                Role:{} <span className="font-bold">{user.role}</span>
                             </p>
-                            <p className="block text-base font-semibold text-white mb-1.5">
-                                Role: {user.role}
-                            </p>
-                            <div className="flex gap-1  text-base font-semibold text-white mb-1.5">
-                                Admin: {user.role === "admin" ? <Check color="green" /> : <X color="red" />}
+                            <div className="flex gap-1  text-base font-normal text-white mb-1.5">
+                                Admin:{}  <span className="font-bold"> {user.role === "admin" ? <Check color="green" /> : <X color="red" />} </span>
                             </div>
                         </div>
                     </div>
 
-                    {/* {roleError && (
-                        <p className="mt-4 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                            {roleError}
-                        </p>
-                    )} */}
-
                     <div className="flex-col h-auto">
                         <div className="mt-6 flex gap-3">
-                            {/* <button
-                                onClick={handleUserChangeRole}
-                                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-400 text-sm hover:text-white hover:border-slate-600 transition-all"
-                            >
-                                Change role
-                            </button> */}
                             {confirmingChangeRole ? (
-                                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-slate-950/80 backdrop-blur-sm">
+                                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-black/25 backdrop-blur-sm">
                                     <div className="w-full max-w-xs mx-4 rounded-2xl border border-red-500/20 bg-slate-900 p-6 text-center shadow-2xl">
-                                        <p className="text-white font-semibold mb-1">Change role for this user?</p>
+                                        <p className="text-white font-semibold mb-5">Change role for this user?</p>
                                         {roleError && (
                                             <p className="mt-4 text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-4">
                                                 {roleError}
                                             </p>
                                         )}
-                                        <div className="flex gap-3">
+                                        <div className="flex gap-3 items-center">
                                             <button
                                                 onClick={() => setConfirmingChangeRole(false)}
-                                                className="flex-1 px-4 py-2.5 rounded-xl border border-cyan-600 text-cyan-600 text-sm hover:text-cyan-500 hover:border-cyan-500 transition-all"
+                                                className="flex-1 px-4 py-2.5 rounded-xl border border-white/50 text-black bg-white hover:bg-gray-200 text-sm transition-colors cursor-pointer"
                                             >
                                                 Cancel
                                             </button>
                                             <button
                                                 onClick={handleUserChangeRole}
-                                                className="flex-1 px-4 py-2.5 rounded-xl border border-red-700 text-red-700 text-sm hover:text-red-600 hover:border-red-600 transition-all"
+                                                className="flex-1 px-4 py-2.5 rounded-xl border border-red-700 text-white bg-red-700  text-sm hover:bg-red-600 hover:border-red-600 transition-colors cursor-pointer"
                                             >
                                                 {loading ? "Changing role" : "Change role"}
                                             </button>
@@ -234,18 +224,13 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
 
                                     disabled={loading}
                                     onClick={() => setConfirmingChangeRole(true)}
-                                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-400 text-sm hover:text-white hover:border-slate-600 transition-all"
+                                    className="flex-1 px-4 py-2.5 rounded-xl border bg-white text-black border-slate-700 hover:bg-gray-200 text-sm hover:border-slate-600 transition-colors cursor-pointer"
                                 >
                                     {loading ? "Changing role" : "Change role"}
                                 </button>
                             )}
-                            {/* <button
-                                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-400 text-sm hover:text-white hover:border-slate-600 transition-all"
-                            >
-                                Change password
-                            </button> */}
                             {modalNewUserPassword ? (
-                                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-slate-950/80 backdrop-blur-sm">
+                                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-black/25 backdrop-blur-sm">
                                     <div className="w-full max-w-xs mx-4 rounded-2xl border border-red-500/20 bg-slate-900 p-6 text-center shadow-2xl">
                                         <p className="text-white font-semibold mb-1">Change password for this user</p>
                                         <p className="text-slate-400 text-sm mb-5">
@@ -267,18 +252,18 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
                                                 setNewUserPassword((f) => ({ ...f, password: e.target.value }));
                                                 // if (fieldErrors.username) setFieldErrors((fe) => ({ ...fe, username: undefined }));
                                             }}
-                                            className={"w-full bg-slate-800/60 border text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 transition-all font-mono border-slate-700/70 focus:border-cyan-500/70 focus:ring-cyan-500/30 mb-4"}
+                                            className={"w-full bg-slate-800/60 border text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all font-mono border-slate-700/70 focus:border-white/70 mb-4"}
                                         />
                                         <div className="flex gap-3">
                                             <button
                                                 onClick={() => setModalNewUserPassword(false)}
-                                                className="flex-1 px-4 py-2.5 rounded-xl border border-cyan-600 text-cyan-600 text-sm hover:text-cyan-500 hover:border-cyan-500 transition-all gap-5"
+                                                className="flex-1 px-4 py-2.5 rounded-xl border border-white/50 text-black bg-white hover:bg-gray-200 text-sm transition-colors cursor-pointer"
                                             >
                                                 Cancel
                                             </button>
                                             <button
                                                 onClick={handleUserChangePassword}
-                                                className="flex-1 px-4 py-2.5 rounded-xl border border-red-700 text-red-700 text-sm hover:text-red-600 hover:border-red-600 transition-all"
+                                                className="flex-1 px-4 py-2.5 rounded-xl border border-red-700 text-white bg-red-700  text-sm hover:bg-red-600 hover:border-red-600 transition-colors cursor-pointer"
                                             >
                                                 {loading ? "Changing" : "Change"}
                                             </button>
@@ -290,7 +275,7 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
 
                                     disabled={loading}
                                     onClick={() => setModalNewUserPassword(true)}
-                                    className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-400 text-sm hover:text-white hover:border-slate-600 transition-all"
+                                    className="flex-1 px-4 py-2.5 rounded-xl border bg-white text-black border-slate-700 hover:bg-gray-200 text-sm hover:border-slate-600 transition-colors cursor-pointer"
                                 >
                                     {loading ? "Changing" : "Change password"}
                                 </button>
@@ -299,12 +284,12 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
                         <div className="mt-6 flex gap-3">
                             <button
                                 onClick={onClose}
-                                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-400 text-sm hover:text-white hover:border-slate-600 transition-all"
+                                className="flex-1 px-4 py-2.5 rounded-xl border border-white/50 text-black bg-white hover:bg-gray-200 text-sm transition-colors cursor-pointer"
                             >
                                 Cancel
                             </button>
                             {confirmingDelete ? (
-                                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-slate-950/80 backdrop-blur-sm">
+                                <div className="absolute inset-0 z-50 flex items-center justify-center rounded-2xl bg-black/25 backdrop-blur-sm">
                                     <div className="w-full max-w-xs mx-4 rounded-2xl border border-red-500/20 bg-slate-900 p-6 text-center shadow-2xl">
                                         <p className="text-white font-semibold mb-1">Delete this user?</p>
                                         <p className="text-slate-400 text-sm mb-5">
@@ -318,13 +303,13 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
                                         <div className="flex gap-3">
                                             <button
                                                 onClick={() => setConfirmingDelete(false)}
-                                                className="flex-1 px-4 py-2.5 rounded-xl border border-cyan-600 text-cyan-600 text-sm hover:text-cyan-500 hover:border-cyan-500 transition-all"
+                                                className="flex-1 px-4 py-2.5 rounded-xl border border-white/50 text-black bg-white hover:bg-gray-200 text-sm transition-colors cursor-pointer"
                                             >
                                                 Cancel
                                             </button>
                                             <button
                                                 onClick={handleUserDelete}
-                                                className="flex-1 px-4 py-2.5 rounded-xl border border-red-700 text-red-700 text-sm hover:text-red-600 hover:border-red-600 transition-all"
+                                                className="flex-1 px-4 py-2.5 rounded-xl border border-red-700 text-white bg-red-700  text-sm hover:bg-red-600 hover:border-red-600 transition-colors cursor-pointer"
                                             >
                                                 {loading ? "Deleting…" : "Delete"}
                                             </button>
@@ -336,7 +321,7 @@ export function UserModal({ user, onClose, fetchUsers }: UserModalProps) {
 
                                     disabled={loading}
                                     onClick={() => setConfirmingDelete(true)}
-                                    className="flex-1 px-4 py-2.5 rounded-xl bg-red-500/85 hover:bg-red-400/90 text-slate-950 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20"
+                                    className="flex-1 px-4 py-2.5 rounded-xl border border-red-700 text-white bg-red-700  text-sm hover:bg-red-600 hover:border-red-600 transition-colors cursor-pointer"
                                 >
                                     {loading ? "Deleting…" : "Delete user"}
                                 </button>

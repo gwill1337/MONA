@@ -1,6 +1,26 @@
 # CHANGELOG
 
 All notable changes to this project will be documented in this file.
+## [v1.0.0] - 2026-11-4 - First Release
+### Added
+- mcp: Added mcp with tools, resources and prompts.
+- backend: Added endpoint to switch device status.
+- backend: Added support for external postgres and redis.
+- backend: Added tests for model and dashboard.
+- backend: Added custom time selector to Dashboard endpoint.
+- frontend: Added custom time selector for Dashboard page.
+- frontend: Added button to switch device status.
+- frontend: Added MCP and Documentation page.
+- frontend: Added selection and store for trained models.
+
+### Changed
+- infra: Enhanced config files for terraform and docker-compose.
+- backend: Enhanced training model.
+- backend: Enhanced Dashboard endpoint.
+- frontend: Redesigned the MONA.
+- forntend: Fix url parsing for device selector.
+- frontend: Fix Dashboard bug when after 12 am/pm metrics are displayed at the left side.
+
 ## [v0.7.0] - 2026-09-14 - Major update
 ### Added
 - backend: Added API versioning except probes and prometheus endpoints.

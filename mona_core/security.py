@@ -37,7 +37,7 @@ def _user_sessions_key(user_id: int) -> str:
     return f"user_sessions:{user_id}"
 
 
-async def register_sesion(user_id: int, session_id: str) -> None:
+async def register_session(user_id: int, session_id: str) -> None:
     key = _user_sessions_key(user_id)
     await redis_client.sadd(key, session_id)
     await redis_client.expire(key, settings.session_ttl)
@@ -195,7 +195,7 @@ async def login(
     await redis_client.set(
         f"session:{session_id}", session_data, ex=settings.session_ttl
     )
-    await register_sesion(user.id, session_id)
+    await register_session(user.id, session_id)
 
     response.set_cookie(
         key="user_session",

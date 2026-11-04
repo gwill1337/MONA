@@ -1,25 +1,45 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type TaskStatus, type ModelInfo, type TrainPhase, type TrainResponse, type TaskResultPayload } from "../types/Types";
+import {
+    type TaskStatus, type TrainPhase, type TrainResponse, type TaskResultPayload, type ModelInfoResponse,
+    type ModelListResponse, type ModelItem,
+} from "../types/Types";
 import { apiFetch } from "../api";
-import { AlertTriangle, BrainCircuit, ChevronDown, Trash2, X, Zap } from "lucide-react";
+import { parseTs } from "../helpers/helpers";
+import { AlertTriangle, BrainCircuit, ChevronDown, RotateCcw, Trash2, X, Zap } from "lucide-react";
+
+// Backend timestamps may come without a timezone — parseTs treats them as UTC
+const fmtDateTime = (iso: string) => new Date(parseTs(iso)).toLocaleString("ru-RU");
+const fmtDate = (iso: string) => new Date(parseTs(iso)).toLocaleDateString("ru-RU");
+
+type LastAction = "train" | "activate" | "delete";
 
 export function ModelPanel({ onTrained }: { onTrained: () => void }) {
-    const [modelInfo, setModelInfo] = useState<ModelInfo | null>(null);
+    const [modelInfo, setModelInfo] = useState<ModelInfoResponse | null>(null);
+    const [models, setModels] = useState<ModelItem[]>([]);
     const [trainHours, setTrainHours] = useState("1");
     const [trainNote, setTrainNote] = useState("");
     const [phase, setPhase] = useState<TrainPhase>({ kind: "idle" });
-    const [deleting, setDeleting] = useState(false);
+    const [lastAction, setLastAction] = useState<LastAction>("train");
+    const [busy, setBusy] = useState(false);
     const [expanded, setExpanded] = useState(false);
     const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     const fetchModelInfo = useCallback(async () => {
         try {
-            const res = await apiFetch<ModelInfo>("/api/v1/model-info");
+            // apiFetch already prepends API + API_VERSION
+            const res = await apiFetch<ModelInfoResponse>("/model-info");
             setModelInfo(res);
         } catch { }
     }, []);
 
-    useEffect(() => { fetchModelInfo(); }, [fetchModelInfo]);
+    const fetchModels = useCallback(async () => {
+        try {
+            const res = await apiFetch<ModelListResponse>("/models");
+            setModels(res.items);
+        } catch { }
+    }, []);
+
+    useEffect(() => { fetchModelInfo(); fetchModels(); }, [fetchModelInfo, fetchModels]);
     useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
     const startPolling = useCallback((taskId: string, prevPoints: number) => {
@@ -54,14 +74,14 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
                     }
 
                     stop();
-                    await fetchModelInfo();
 
-                    const infoRes = await apiFetch<ModelInfo>("/model-info");
-                    const info: ModelInfo = infoRes ?? { status: "no_model" };
+                    const infoRes = await apiFetch<ModelInfoResponse>("/model-info");
+                    const info: ModelInfoResponse = infoRes ?? { status: "no_model", message: "No model" };
 
                     setModelInfo(info);
+                    await fetchModels();
 
-                    const pts = info.status === "ok" ? info.model!.points_count : prevPoints;
+                    const pts = info.status === "ok" ? info.model.points_count : prevPoints;
                     setPhase({ kind: "success", text: `Model trained on ${pts} points` });
 
                     onTrained();
@@ -81,11 +101,12 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
 
             // ── 2. Fallback: if task-status endpoint missing, detect via model-info ─
             try {
-                const info = await apiFetch<ModelInfo>("/model-info");
+                const info = await apiFetch<ModelInfoResponse>("/model-info");
                 if (info.status === "ok" && (info.model?.points_count ?? 0) !== prevPoints) {
                     stop();
                     setModelInfo(info);
-                    setPhase({ kind: "success", text: `Model trained on ${info.model!.points_count} points` });
+                    await fetchModels();
+                    setPhase({ kind: "success", text: `Model trained on ${info.model.points_count} points` });
                     onTrained();
                     return;
                 }
@@ -97,11 +118,12 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
                 setPhase({ kind: "error", text: "Training timed out. Check Celery worker logs." });
             }
         }, INTERVAL);
-    }, [fetchModelInfo, onTrained]);
+    }, [onTrained, fetchModels]);
 
     const handleTrain = async () => {
         if (pollRef.current) return;
-        const prevPoints = modelInfo?.model?.points_count ?? 0;
+        setLastAction("train");
+        const prevPoints = modelInfo?.status === "ok" ? modelInfo.model.points_count : 0;
         setPhase({ kind: "submitting" });
         try {
             const params = new URLSearchParams({ hours: trainHours, note: trainNote });
@@ -114,7 +136,7 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
                 startPolling(d.task_id ?? "?", prevPoints);
             } else if (d.status === "ok" || d.status === "success") {
                 setPhase({ kind: "success", text: d.message ?? "Model trained successfully" });
-                await fetchModelInfo();
+                await Promise.all([fetchModelInfo(), fetchModels()]);
                 onTrained();
             } else {
                 setPhase({ kind: "error", text: d.message ?? "Unknown error from server" });
@@ -123,39 +145,67 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
             if (e.status === 403) {
                 setPhase({ kind: "error", text: "Training the model requires admin privileges" });
             } else {
-                setPhase({ kind: "error", text: `error: ${e.message}`})
+                setPhase({ kind: "error", text: `error: ${e.message}` });
             }
-
         }
     };
 
-    const handleDelete = async () => {
-        if (!confirm("Reset model and return to auto-mode?")) return;
-        setDeleting(true);
+    // Shared runner for admin actions that change which model is used
+    const runModelAction = async (
+        action: LastAction,
+        request: () => Promise<unknown>,
+        successText: string,
+        forbiddenText: string,
+    ) => {
+        setLastAction(action);
+        setBusy(true);
         try {
-            await apiFetch("/api/v1/model", {
-                method: "DELETE",
-            });
-            await fetchModelInfo();
-            setPhase({ kind: "success", text: "Model deleted. Switched to auto-mode." });
+            await request();
+            await Promise.all([fetchModelInfo(), fetchModels()]);
+            setPhase({ kind: "success", text: successText });
             onTrained();
         } catch (e: any) {
-            if (e.response?.status === 403) {
-                setPhase({ kind: "error", text: "Deleting the model requires admin privileges" });
+            // apiFetch throws ApiError { message, status }
+            if (e.status === 403) {
+                setPhase({ kind: "error", text: forbiddenText });
             } else {
-                const d = e.response?.data ?? {};
-                const detail = d.detail;
-                const message =
-                    typeof detail === "string"
-                        ? detail
-                        : detail?.message ?? e.message ?? "Unknown error";
-                setPhase({ kind: "error", text: `Failed to delete: ${message}` });
+                setPhase({ kind: "error", text: e.message ?? "Unknown error" });
             }
-        } finally { setDeleting(false); }
+        } finally { setBusy(false); }
+    };
+
+    const handleActivate = (m: ModelItem) =>
+        runModelAction(
+            "activate",
+            () => apiFetch(`/models/${m.id}/activate`, { method: "POST" }),
+            "Model activated.",
+            "Switching models requires admin privileges",
+        );
+
+    const handleAutoMode = () => {
+        if (!confirm("Switch to auto-mode? Saved models will be kept.")) return;
+        runModelAction(
+            "activate",
+            () => apiFetch("/models/deactivate", { method: "POST" }),
+            "Switched to auto-mode.",
+            "Switching models requires admin privileges",
+        );
+    };
+
+    const handleDeleteOne = (m: ModelItem) => {
+        const warn = m.is_active ? "\nIt is active — the system will switch to auto-mode." : "";
+        if (!confirm(`Delete model from ${fmtDateTime(m.trained_at)}?${warn}`)) return;
+        runModelAction(
+            "delete",
+            () => apiFetch(`/models/${m.id}`, { method: "DELETE" }),
+            m.is_active ? "Model deleted. Switched to auto-mode." : "Model deleted.",
+            "Deleting the model requires admin privileges",
+        );
     };
 
     const isTraining = phase.kind === "submitting" || phase.kind === "polling";
     const hasModel = modelInfo?.status === "ok";
+    const locked = isTraining || busy;
 
     function StatusBanner() {
         if (phase.kind === "idle") return null;
@@ -203,7 +253,11 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
             <div className="rounded-lg px-3 py-2.5 bg-red-500/10 border border-red-500/20 space-y-1">
                 <div className="flex items-center gap-2">
                     <AlertTriangle size={12} className="text-red-400 shrink-0" />
-                    <span className="text-xs text-red-400 font-medium flex-1">Training failed</span>
+                    <span className="text-xs text-red-400 font-medium flex-1">
+                        {lastAction === "delete" ? "Delete failed"
+                            : lastAction === "activate" ? "Switch failed"
+                                : "Training failed"}
+                    </span>
                     <button onClick={() => setPhase({ kind: "idle" })} className="text-red-700 hover:text-red-400 transition-colors">
                         <X size={11} />
                     </button>
@@ -234,8 +288,10 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
                         {isTraining
                             ? "Celery worker is processing the task"
                             : hasModel
-                                ? `Trained on ${modelInfo!.model!.points_count} pts · ${new Date(modelInfo!.model!.trained_at).toLocaleDateString("ru-RU")}`
-                                : "No manual model. Train on a clean period."}
+                                ? `Trained on ${modelInfo.model.points_count} pts · ${fmtDate(modelInfo.model.trained_at)}`
+                                : models.length > 0
+                                    ? `No active model · ${models.length} saved`
+                                    : "No manual model. Train on a clean period."}
                     </p>
                 </div>
                 <ChevronDown size={14} className={`text-slate-500 transition-transform shrink-0 ${expanded ? "rotate-180" : ""}`} />
@@ -243,10 +299,19 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
 
             {expanded && (
                 <div className="px-4 pb-4 space-y-3 border-t border-slate-700/30 pt-3">
-                    {hasModel && modelInfo?.model && (
+                    {modelInfo?.status === "ok" && (
                         <div className="text-[11px] text-slate-400 font-mono space-y-0.5 bg-slate-900/40 rounded-lg p-3">
-                            <p>Trained: {new Date(modelInfo.model.trained_at).toLocaleString("ru-RU")}</p>
-                            <p>Period: {new Date(modelInfo.model.period_from).toLocaleString("ru-RU")} → {new Date(modelInfo.model.period_to).toLocaleString("ru-RU")}</p>
+                            <p>Trained: {fmtDateTime(modelInfo.model.trained_at)}</p>
+                            <p>
+                                Period:{" "}
+                                {modelInfo.model.period_from
+                                    ? fmtDateTime(modelInfo.model.period_from)
+                                    : "—"}
+                                {" → "}
+                                {modelInfo.model.period_to
+                                    ? fmtDateTime(modelInfo.model.period_to)
+                                    : "—"}
+                            </p>
                             {modelInfo.model.note && <p>Note: {modelInfo.model.note}</p>}
                         </div>
                     )}
@@ -256,36 +321,68 @@ export function ModelPanel({ onTrained }: { onTrained: () => void }) {
                         <div className="flex gap-2">
                             <div className="shrink-0">
                                 <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Hours</label>
-                                <input type="number" value={trainHours} min="0.1" step="0.5" disabled={isTraining}
+                                <input type="number" value={trainHours} min="0.1" step="0.5" disabled={locked}
                                     onChange={(e) => setTrainHours(e.target.value)}
-                                    className="w-20 bg-slate-800/70 border border-slate-700/70 text-white rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-cyan-500/50 disabled:opacity-40" />
+                                    className="w-20 bg-slate-800/70 border border-slate-700/70 text-white rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-gray-400/50 disabled:opacity-40" />
                             </div>
                             <div className="flex-1">
                                 <label className="text-[10px] text-slate-500 uppercase tracking-widest block mb-1">Note</label>
-                                <input type="text" value={trainNote} placeholder="e.g.: normal load" disabled={isTraining}
+                                <input type="text" value={trainNote} placeholder="e.g.: normal load" disabled={locked}
                                     onChange={(e) => setTrainNote(e.target.value)}
-                                    className="w-full bg-slate-800/70 border border-slate-700/70 text-white placeholder-slate-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-cyan-500/50 disabled:opacity-40" />
+                                    className="w-full bg-slate-800/70 border border-slate-700/70 text-white placeholder-slate-600 rounded-lg px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-gray-400/50 disabled:opacity-40" />
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={handleTrain} disabled={isTraining}
-                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                            <button onClick={handleTrain} disabled={locked}
+                                className="flex items-center gap-1.5 px-3 py-2 mt-2 rounded-lg bg-white  hover:bg-gray-200 text-slate-950 font-semibold text-xs transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer">
                                 {isTraining
                                     ? <div className="w-3 h-3 border border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
                                     : <Zap size={12} />}
                                 {phase.kind === "submitting" ? "Submitting…" : isTraining ? "Training…" : "Train model"}
                             </button>
                             {hasModel && !isTraining && (
-                                <button onClick={handleDelete} disabled={deleting}
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 text-xs transition-all disabled:opacity-50">
-                                    <Trash2 size={12} />
-                                    {deleting ? "Deleting…" : "Delete model"}
+                                <button onClick={handleAutoMode} disabled={busy}
+                                    className="flex items-center gap-1.5 px-3 py-2 mt-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 text-xs transition-all disabled:opacity-50">
+                                    <RotateCcw size={12} />
+                                    Auto-mode
                                 </button>
                             )}
                         </div>
                     </div>
 
                     <StatusBanner />
+
+                    {models.length > 0 && (
+                        <div className="space-y-1.5">
+                            <p className="text-xs text-slate-400 font-medium">Saved models ({models.length}):</p>
+                            <div className="space-y-1">
+                                {models.map((m) => (
+                                    <div key={m.id}
+                                        className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-[11px] font-mono ${m.is_active
+                                            ? "border-cyan-500/40 bg-cyan-500/10 text-slate-200"
+                                            : "border-slate-700/40 bg-slate-900/40 text-slate-400"}`}>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="truncate">{fmtDateTime(m.trained_at)} · {m.points_count} pts</p>
+                                            {m.note && <p className="truncate text-slate-500">{m.note}</p>}
+                                        </div>
+                                        {m.is_active
+                                            ? <span className="shrink-0 px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 text-[10px] uppercase tracking-wider">active</span>
+                                            : (
+                                                <button onClick={() => handleActivate(m)} disabled={locked}
+                                                    className="shrink-0 px-2 py-0.5 rounded border border-slate-600/60 text-slate-300 hover:bg-slate-700/50 transition-all disabled:opacity-40 cursor-pointer">
+                                                    Use
+                                                </button>
+                                            )}
+                                        <button onClick={() => handleDeleteOne(m)} disabled={locked}
+                                            className="shrink-0 p-1 rounded text-red-400/70 hover:text-red-400 hover:bg-red-500/10 transition-all disabled:opacity-40 cursor-pointer"
+                                            title="Delete model">
+                                            <Trash2 size={11} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
         </div>

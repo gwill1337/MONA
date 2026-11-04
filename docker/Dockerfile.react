@@ -10,7 +10,6 @@ COPY frontend .
 RUN npm run build
 
 
-# ---------- Runtime ----------
 FROM nginxinc/nginx-unprivileged:stable-alpine
 
 USER root

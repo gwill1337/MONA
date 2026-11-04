@@ -1,9 +1,13 @@
+import math
 import os
 import tempfile
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from fakeredis import FakeAsyncRedis
+from datetime import UTC, datetime
+from sqlalchemy import event
 
 _tmp_dir = tempfile.mkdtemp()
 _TEST_DB_PATH = os.path.join(_tmp_dir, "test.db")
@@ -18,6 +22,24 @@ from mona_core import tasks as tasks_module  # noqa: E402
 from mona_core.routers import health as health_module # noqa: E402
 from mona_core.config import celery_client # noqa: E402
 
+@event.listens_for(db_module.engine, "connect")
+def _sqlite_pg_compat(dbapi_conn, _record):
+    def to_timestamp(epoch):
+        if epoch is None:
+            return None
+        return datetime.fromtimestamp(float(epoch), UTC).isoformat(sep=" ")
+
+    dbapi_conn.create_function("to_timestamp", 1, to_timestamp, deterministic=True)
+    dbapi_conn.create_function(
+        "floor", 1, lambda x: None if x is None else math.floor(x), deterministic=True
+    )
+
+db_module.engine.dispose()
+
+@event.listens_for(db_module.Metric, "load")
+def _metric_load(target, context):
+    if target.timestamp and target.timestamp.tzinfo is None:
+        target.timestamp = target.timestamp.replace(tzinfo=UTC)
 
 @pytest.fixture(scope="session", autouse=True)
 def _create_schema():
@@ -138,31 +160,51 @@ def mock_redis(monkeypatch):
     monkeypatch.setattr(health_module, "redis_client", fake)
     return fake
 
-# ─── Prometheus mocks (used by tasks._query / tasks.collect_and_save) ───────
+# ─── Prometheus mocks (used by tasks._query_prometheus / tasks.collect_and_save) ──
 class FakeResponse:
-    """Mimics an httpx2 Response, for mocking tasks.httpx2.get() calls."""
+    """Mimics an httpx2 Response: returns a fixed JSON payload."""
 
-    def __init__(self, value=None, empty=False):
-        self._value = value
-        self._empty = empty
+    def __init__(self, payload):
+        self._payload = payload
 
     def raise_for_status(self):
         pass
 
     def json(self):
-        if self._empty:
-            return {"data": {"result": []}}
-        return {"data": {"result": [{"value": [123, str(self._value)]}]}}
+        return self._payload
+
+
+def _vector_payload(values):
+    """Build a Prometheus instant-vector response from {job: value}."""
+    return {
+        "status": "success",
+        "data": {
+            "resultType": "vector",
+            "result": [
+                {"metric": {"job": job}, "value": [1700000000, str(value)]}
+                for job, value in values.items()
+            ],
+        },
+    }
+
 
 class FakeClient:
-    """Mimics httpx2.Client(base_url=..., timeout=...) used as a context manager.
-    `values` is an iterable of numbers consumed in call order: collect_and_save()
-    issues one GET for the cpu query, then one for the ram query, per device.
-    So values = [cpu1, ram1, cpu2, ram2, ...].
+    """Mimics httpx2.Client used as a context manager.
+
+    collect_and_save() now issues exactly two grouped queries (CPU, then RAM),
+    and each answer carries one series per job. The fake picks the answer by
+    looking at the query text, so call order does not matter.
+
+    cpu / ram: {job: value}
+    payload:   raw JSON returned for ANY query (to test malformed responses)
+    error:     exception instance raised from get()
     """
 
-    def __init__(self, values):
-        self._values = iter(values)
+    def __init__(self, cpu=None, ram=None, payload=None, error=None):
+        self.cpu = cpu or {}
+        self.ram = ram or {}
+        self.payload = payload
+        self.error = error
         self.calls = []
 
     def __enter__(self):
@@ -171,34 +213,121 @@ class FakeClient:
     def __exit__(self, *exc_info):
         return False
 
-    def get(self, path, params=None):
-        self.calls.append(params)
-        return FakeResponse(value=next(self._values))
+    def get(self, url, params=None):
+        self.calls.append({"url": url, "params": params})
+        if self.error is not None:
+            raise self.error
+        if self.payload is not None:
+            return FakeResponse(self.payload)
+
+        query = (params or {}).get("query", "")
+        if "node_cpu_seconds_total" in query:
+            values = self.cpu
+        elif "node_memory" in query:
+            values = self.ram
+        else:
+            values = {}
+        return FakeResponse(_vector_payload(values))
 
 
 @pytest.fixture()
-def fake_prometheus_response():
-    """Factory for FakeResponse objects, to mock tasks.httpx2.get() directly.
+def make_prometheus_client():
+    """Factory for FakeClient, e.g. to call tasks._query_prometheus(client, query) directly.
+
     Usage:
-        monkeypatch.setattr(tasks.httpx2, "get", lambda *a, **k: fake_prometheus_response(57.8))
+        client = make_prometheus_client(cpu={"pc1": 57.8})
+        assert tasks._query_prometheus(client, tasks.CPU_QUERY) == {"pc1": 57.8}
     """
 
-    def _make(value=None, empty=False):
-        return FakeResponse(value=value, empty=empty)
+    def _make(cpu=None, ram=None, payload=None, error=None):
+        return FakeClient(cpu=cpu, ram=ram, payload=payload, error=error)
+
     return _make
 
 
 @pytest.fixture()
-def patch_prometheus_client(monkeypatch):
-    """Patches tasks.httpx2.Client with a FakeClient that yields `values` in order.
+def patch_prometheus_client(monkeypatch, make_prometheus_client):
+    """Patches tasks.httpx2.Client with a FakeClient.
+
     Usage:
-        def test_x(self, monkeypatch, db_session, patch_prometheus_client):
-            patch_prometheus_client([55.5, 77.7])  # cpu, ram for one device
-            tasks.collect_and_save()
+        patch_prometheus_client(cpu={"pc1": 55.5}, ram={"pc1": 77.7})
+        tasks.collect_and_save()
     """
 
-    def _patch(values):
-        fake_client = FakeClient(values)
+    def _patch(cpu=None, ram=None, payload=None, error=None):
+        fake_client = make_prometheus_client(
+            cpu=cpu, ram=ram, payload=payload, error=error
+        )
         monkeypatch.setattr(tasks_module.httpx2, "Client", lambda *a, **k: fake_client)
         return fake_client
+
     return _patch
+
+
+@pytest.fixture()
+def make_device(db_session):
+    """Factory fixture: creates a Device row directly in the DB (bypassing the API)."""
+    from mona_core.db import Device
+
+    def _make(name="switch-me", ip="10.0.0.5", is_active=True):
+        dev = Device(ip=ip, name=name, is_active=is_active)
+        db_session.add(dev)
+        db_session.commit()
+        db_session.refresh(dev)
+        return dev
+
+    return _make
+
+
+@pytest.fixture(scope="session")
+def trained_model_bytes():
+    """Serialized (model, scaler) made by the real anomaly_core pipeline.
+
+    Hand-made fakes can't be used here: dump_model/load_active_model go through
+    a trusted-types serializer, so custom test classes fail to load and
+    detection silently falls back to auto-mode.
+    """
+    from mona_core.anomaly_core import dump_model, fit_detector
+
+    rng = np.random.default_rng(0)
+    n = 200
+    features = np.column_stack(
+        [
+            rng.normal(50, 5, n),  # cpu
+            rng.normal(40, 5, n),  # ram
+            rng.normal(0, 1, (n, 4)),  # cpu_d1, ram_d1, cpu_d5, ram_d5
+        ]
+    )
+    model, scaler = fit_detector(features)
+    return dump_model(model, scaler)
+
+
+@pytest.fixture()
+def make_trained_model(db_session):
+    from datetime import UTC, datetime
+    from mona_core.db import TrainedModel
+
+    def _make(
+        model_data=b"x",
+        trained_by="user",
+        points_count=1,
+        is_active=True,
+        note="",
+        period_from=None,
+        period_to=None,
+    ):
+        record = TrainedModel(
+            model_data=model_data,
+            trained_by=trained_by,
+            points_count=points_count,
+            is_active=is_active,
+            note=note,
+            period_from=period_from or datetime(2026, 1, 1, tzinfo=UTC),
+            period_to=period_to or datetime(2026, 1, 2, tzinfo=UTC),
+        )
+        db_session.add(record)
+        db_session.commit()
+        db_session.refresh(record)
+        return record
+
+    return _make
