@@ -71,10 +71,12 @@ docker compose -p mona-prod --env-file .env -f docker-compose.prod.yml up -d --b
 ## Usage
 **Links below are available after setup.**
 ### Main links:
-* **Admin panel:** `localhost:30081/` *Default username: admin, password: admin123*
+* **Admin panel:** `localhost:30081/` *Default username: admin, password: see the config file (terraform.tfvars or .env)*
 * **Dashboards:** `localhost:30081/dashboard`
 * **Userboard:** `localhost:30081/userboard`
-* **Grafana:** `localhost:30300/` *Default username: admin, password: admin123*
+* **MCP:** `localhost:30081/mcp`
+* **Docs:** `localhost:30081/docs`
+* **Grafana:** `localhost:30300/` *Default username: admin, password: see the config file (terraform.tfvars)*
 * **Prometheus(Monitoring devices):** `localhost:30391/`
 * **Prometheus(Cluster):** `localhost:30091/`
 
