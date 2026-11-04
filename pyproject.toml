@@ -1,6 +1,6 @@
 [project]
 name = "mona"
-version = "0.4.0"
+version = "1.0.0"
 description = "toml for mona project"
 readme = "README.md"
 requires-python = ">=3.13"
