@@ -82,18 +82,17 @@ export function AddUserModal({ onClose, fetchUsers }: AddUserModalProps) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div
-                className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/25 backdrop-blur-sm"
                 onClick={onClose}
             />
-            <div className="relative w-full max-w-md mx-4 rounded-2xl border border-slate-700/60 bg-slate-900 shadow-2xl shadow-black/60 overflow-hidden">
-                <div className="h-px w-full bg-linear-to-r from-transparent via-cyan-500 to-transparent" />
+            <div className="relative w-full max-w-md mx-4 rounded-2xl border border-slate-700/60 bg-black shadow-2xl shadow-black/60 overflow-hidden">
 
                 <div className="p-6">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-lg font-semibold text-white tracking-tight">Add user</h2>
                         <button
                             onClick={onClose}
-                            className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800"
+                            className="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
                         >
                             <X size={16} />
                         </button>
@@ -112,9 +111,9 @@ export function AddUserModal({ onClose, fetchUsers }: AddUserModalProps) {
                                     setForm((f) => ({ ...f, username: e.target.value }));
                                     if (fieldErrors.username) setFieldErrors((fe) => ({ ...fe, username: undefined }));
                                 }}
-                                className={`w-full bg-slate-800/60 border text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 transition-all font-mono ${fieldErrors.username
-                                    ? "border-red-500/70 focus:border-red-500 focus:ring-red-500/30"
-                                    : "border-slate-700/70 focus:border-cyan-500/70 focus:ring-cyan-500/30"
+                                className={`w-full bg-slate-800/60 border text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all font-mono ${fieldErrors.username
+                                    ? "border-red-500/70 focus:border-red-500 "
+                                    : "border-slate-700/70 focus:border-white/65 "
                                     }`}
                             />
                             {fieldErrors.username && (
@@ -133,9 +132,9 @@ export function AddUserModal({ onClose, fetchUsers }: AddUserModalProps) {
                                     setForm((f) => ({ ...f, password: e.target.value }));
                                     if (fieldErrors.password) setFieldErrors((fe) => ({ ...fe, password: undefined }));
                                 }}
-                                className={`w-full bg-slate-800/60 border text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-1 transition-all font-mono ${fieldErrors.password
-                                    ? "border-red-500/70 focus:border-red-500 focus:ring-red-500/30"
-                                    : "border-slate-700/70 focus:border-cyan-500/70 focus:ring-cyan-500/30"
+                                className={`w-full bg-slate-800/60 border text-white placeholder-slate-500 rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-all font-mono ${fieldErrors.password
+                                    ? "border-red-500/70 focus:border-red-500"
+                                    : "border-slate-700/70 focus:border-white/65"
                                     }`}
                             />
                             {fieldErrors.password && (
@@ -147,12 +146,11 @@ export function AddUserModal({ onClose, fetchUsers }: AddUserModalProps) {
                             <button
                                 type="button"
                                 onClick={() => setForm((f) => ({ ...f, admin_privileges: !f.admin_privileges }))}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${form.admin_privileges ? "bg-cyan-500" : "bg-slate-700"
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${form.admin_privileges ? "bg-white" : "bg-slate-700"
                                     }`}
                             >
                                 <span
-                                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${form.admin_privileges ? "translate-x-6" : "translate-x-1"
-                                        }`}
+                                    className={`inline-block h-4 w-4 transform rounded-full shadow-sm transition duration-200 ${form.admin_privileges ? "translate-x-6 bg-black" : "translate-x-1 bg-white"}`}
                                 />
                             </button>
                         </div>
@@ -167,14 +165,14 @@ export function AddUserModal({ onClose, fetchUsers }: AddUserModalProps) {
                     <div className="mt-6 flex gap-3">
                         <button
                             onClick={onClose}
-                            className="flex-1 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-400 text-sm hover:text-white hover:border-slate-600 transition-all"
+                            className="flex-1 px-4 py-2.5 rounded-xl border text-sm border-slate-700 text-slate-400 hover:text-white hover:bg-red-500/35 hover:border-red-500/50 transition-colors cursor-pointer"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleSubmit}
                             disabled={loading}
-                            className="flex-1 px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20"
+                            className="flex-1 px-4 py-2.5 rounded-xl bg-white hover:bg-gray-300/90 text-slate-950 font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20 cursor-pointer"
                         >
                             {loading ? "Adding…" : "Add user"}
                         </button>

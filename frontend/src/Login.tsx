@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, Lock, User } from "lucide-react";
+import { Lock, User, Activity } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { apiFetch } from "./api";
 import type { Login } from "./types/Types";
@@ -13,7 +13,7 @@ export default function LoginPage() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const from = location.state?.from?.pathname || "/dashboard";
+    const from = location.state?.from?.pathname || "/";
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
     const [username, setUsername] = useState("");
@@ -61,32 +61,17 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white">
 
-            {/* background grid */}
-            <div
-                className="fixed inset-0 pointer-events-none"
-                style={{
-                    backgroundImage: `
-                        linear-gradient(rgba(148,163,184,0.03) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(148,163,184,0.03) 1px, transparent 1px)
-                    `,
-                    backgroundSize: "48px 48px",
-                }}
-            />
-
-            <div className="fixed top-0 left-1/2 -translate-x-1/2 w-150 h-px bg-linear-to-r from-transparent via-cyan-500/40 to-transparent" />
+            {/* <div className="fixed top-0 left-1/2 -translate-x-1/2 w-150 h-px bg-linear-to-r from-transparent via-cyan-500/40 to-transparent" /> */}
             <div className="relative w-full max-w-md">
-                <div className="rounded-2xl border border-slate-700/60 bg-slate-900/70 overflow-hidden shadow-2xl shadow-black/50">
-                    <div className="h-px w-full bg-linear-to-r from-transparent via-cyan-500 to-transparent" />
+                <div className="rounded-2xl border border-slate-700/60 bg-black overflow-hidden shadow-2xl shadow-black/50">
                     <div className="p-8">
-                        <div className="flex justify-center mb-6">
-                            <div className="p-4 rounded-2xl bg-cyan-500/10 text-cyan-400">
-                                <Shield size={36} />
-                            </div>
+                        <div className="flex justify-center items-center mb-3 gap-2">
+                            <Activity size={36} />
+                            <h1 className="text-2xl font-bold text-center">
+                                MONA
+                            </h1>
                         </div>
 
-                        <h1 className="text-2xl font-bold text-center">
-                            MONA
-                        </h1>
 
                         <p className="text-center text-slate-400 text-sm mt-1 mb-8">
                             Administrator Login
@@ -112,13 +97,13 @@ export default function LoginPage() {
                                             setUsername(e.target.value);
                                         }}
                                         className={`w-full bg-slate-800 border rounded-xl pl-11 pr-4 py-3 focus:outline-none transition ${fieldErrors.username
-                                            ? "border-red-500/70 focus:border-red-500 focus:ring-red-500/30"
-                                            : "border-slate-700 focus:border-cyan-500 focus:ring-cyan-500/30"}`}
+                                            ? "border-red-500/70 focus:border-red-500"
+                                            : "border-slate-700 focus:border-white/70"}`}
                                     />
                                 </div>
-                                    {fieldErrors.username && (
-                                        <p className="mt-1.5 text-xs text-red-400">{fieldErrors.username}</p>
-                                    )}
+                                {fieldErrors.username && (
+                                    <p className="mt-1.5 text-xs text-red-400">{fieldErrors.username}</p>
+                                )}
                             </div>
                             <div>
 
@@ -138,13 +123,13 @@ export default function LoginPage() {
                                             setPassword(e.target.value);
                                         }}
                                         className={`w-full bg-slate-800 border rounded-xl pl-11 pr-4 py-3 focus:outline-none transition ${fieldErrors.password
-                                            ? "border-red-500/70 focus:border-red-500 focus:ring-red-500/30"
-                                            : "border-slate-700 focus:border-cyan-500 focus:ring-cyan-500/30"}`}
+                                            ? "border-red-500/70 focus:border-red-500"
+                                            : "border-slate-700 focus:border-white/70"}`}
                                     />
                                 </div>
-                                    {fieldErrors.password && (
-                                        <p className="mt-1.5 text-xs text-red-400">{fieldErrors.password}</p>
-                                    )}
+                                {fieldErrors.password && (
+                                    <p className="mt-1.5 text-xs text-red-400">{fieldErrors.password}</p>
+                                )}
                             </div>
 
                             {error && (
@@ -158,7 +143,7 @@ export default function LoginPage() {
                             <button
                                 disabled={loading}
                                 onClick={login}
-                                className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold transition disabled:opacity-50"
+                                className="w-full py-3 rounded-xl bg-white hover:bg-gray-200 text-slate-950 font-bold transition-colors disabled:opacity-5 cursor-pointer"
                             >
                                 {loading ? "Signing in..." : "Sign In"}
                             </button>
