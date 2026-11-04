@@ -218,7 +218,7 @@ It also needs two internal addresses (already set in `docker-compose.prod.yml` a
 
 <details>
 
-<summary><b>Click to view Additional Tools<b></summary>
+<summary><b>Click to view Additional Tools</b>b></summary>
 
 ### Additional Tools
 
