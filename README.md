@@ -145,10 +145,17 @@ Helm templates for flexible and fast setup can be configured in [values](https:/
 ## ML
 * **ML:** Mona uses Scikit-learn for anomaly detection.
 * **Training:** The model uses **Isolation Forest** and builds features with deltas for more accurate anomaly detection.
+* **Features:** Every point is described by 6 features: CPU and RAM values, their change from the previous sample (`d1`) and their change over the last 5 samples (`d5`, about 2.5 minutes with the default 30-second collector).
+* **Gaps & offline periods:** Deltas are never calculated across a time gap longer than 90 seconds or across a switch between offline and online. Because of this, the first points after a device comes back are not treated as a sudden jump.
+* **Zeros:** If Prometheus has no data for a device (for example, the device is offline), MONA stores `0.0` instead of skipping the point. Zeros stay in the database and on the charts, but a point where both CPU and RAM are zero is never reported as an anomaly.
+
 
 ### Model has 2 modes
-1. **Auto:** Takes between 50 and 500 of the most recent data points and trains the model on the fly. The model is not stored in the database and retrains before each detection (every 60 seconds by default).
-2. **Manual:** Uses a time range specified by the user. The trained model is stored in the database.
+1. **Auto:** Runs every 30 seconds and works per device. It takes the most recent `WINDOW` points (500 by default, at least `MIN_POINTS` = 30 clean points are required) and trains the model on the fly. The model is not stored in the database and retrains before each detection. Two kinds of points are never used for training:
+   * the points being checked (the last 5 minutes);
+   * the area around already detected anomalies: 5 minutes before and after each one, extended through the whole period while CPU or RAM stays above 80%.
+
+2. **Manual:** Uses a time range specified by the user. The model is trained on all devices at once with the same cleaning of known anomalies as in Auto, and is stored in the database together with its scaler. At least 30 clean points are required. MONA keeps the 10 newest models (the active one is never removed). A trained model can be activated right away or later; while a model is active, detection uses it instead of Auto. If the stored model can't be loaded, detection falls back to Auto.
 
 ## PostgreSQL
 Postgres runs as a `StatefulSet`, which provides stable pod identifiers, persistent storage linked to specific pods, and ordered deployment for stateful applications.   
@@ -271,6 +278,26 @@ Here more about architecture and how **MONA** works.
 MONA's [**ML model**](https://github.com/gwill1337/MONA/blob/main/mona_core/ml.py) has `CONTAMINATION = 0.05` which means up to 5% of data points might be classified as anomalies, even if there are none.
 To reduce false positive detections, the model is equipped with a limiter `SCORE_THRESHOLD = -0.05`.   
 In other words, it discards anomalies that the model estimates at less than a 5% confidence threshold. To definitively rule out false positives, the model also ignores "combined anomalies" if CPU and RAM usage are below 80%.
+
+#### How detection works:
+1. **Collect:** Every 30 seconds Celery queries Prometheus for CPU and RAM of every active device and saves a new metric point.
+2. **Check:** Every 30 seconds the detector looks only at points from the last 5 minutes. Older points of the same device are the training history (Auto mode) or are ignored (Manual mode).
+3. **Filter:** A point becomes an anomaly only if all of these are true:
+   * the model marks it as an outlier and its score is below `SCORE_THRESHOLD`;
+   * CPU and RAM are not both zero;
+   * it is not a weak "combined anomaly" (both CPU and RAM below 80%);
+   * it was not saved before (one anomaly per metric point).
+4. **Explain:** Every anomaly is saved with its score and a reason: high usage (CPU or RAM above 85%), a sudden change between two samples (CPU more than 20% or RAM more than 15%), a change over 5 samples (CPU more than 30% or RAM more than 20%), or a combined anomaly if no single factor stands out.
+
+
+### Dashboard
+When a time range is selected (`hours` or `start` and `end`), the dashboard endpoint (`/api/v1/dashboard`) groups the metrics into time buckets for each device, and CPU and RAM are averaged inside every bucket. This keeps charts fast and readable on long ranges. The bucket size depends on the length of the range:
+ 
+* up to 12 hours — 1 minute buckets
+* more than 12 hours and less than 7 days — 10 minute buckets
+* 7 days and more — 1 hour buckets
+The number of returned metric points is limited by `max_points` (2000 by default, 10000 at most). Anomalies are returned as they are, without bucketing.
+
 
 ### FastAPI
 #### Config vs Admin Panel Device Management:
