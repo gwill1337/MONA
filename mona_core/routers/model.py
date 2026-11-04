@@ -5,16 +5,19 @@ from fastapi import Depends, HTTPException, Query, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from mona_core import model_registry as registry
 from mona_core.config import celery_client
 from mona_core.db import Anomaly, TrainedModel
 from mona_core.schemas import (
     AnomalyOut,
     AnomalySchema,
     DeleteModelOut,
+    MessageResponse,
     ModelInfo,
     ModelInfoEmpty,
     ModelInfoOk,
     ModelInfoOut,
+    ModelListOut,
     TrainModelOut,
 )
 from mona_core.security import (
@@ -53,24 +56,28 @@ def get_anomalies(
     )
 
 
+# ─── Models ─────────────────────────────────────────────────────────────────
+
+
 @user_router.get("/model-info", response_model=ModelInfoOut)
 def model_info(db: Session = Depends(get_db)) -> ModelInfoOut:
-    stmt = (
-        select(TrainedModel)
-        .where(TrainedModel.trained_by == "user")
-        .order_by(TrainedModel.trained_at.desc())
-        .limit(1)
-    )
-
-    record = db.execute(stmt).scalar_one_or_none()
+    """The ACTIVE model (the one anomaly detection uses)."""
+    record = registry.get_active(db)
 
     if record is None:
         return ModelInfoEmpty(
             status="no_model",
-            message="Model is not manually trained yet. Using auto-mode.",
+            message="No active model. Using auto-mode.",
         )
-    model_data = ModelInfo.model_validate(record)
-    return ModelInfoOk(status="ok", model=model_data)
+    return ModelInfoOk(status="ok", model=ModelInfo.model_validate(record))
+
+
+@user_router.get("/models", response_model=ModelListOut)
+def list_models(db: Session = Depends(get_db)) -> ModelListOut:
+    """All saved models, newest first."""
+    return ModelListOut(
+        items=[ModelInfo.model_validate(m) for m in registry.list_models(db)]
+    )
 
 
 @admin_router.post(
@@ -84,10 +91,15 @@ def train_model(
         description="Hours of recent data to use for training",
     ),
     note: str = Query(default="", description="Comment (optional)"),
+    activate: bool = Query(
+        default=True,
+        description="Make the new model active (false = just save it)",
+    ),
 ) -> TrainModelOut:
 
     task = celery_client.send_task(
-        "tasks.train_model_task", kwargs={"hours": hours, "note": note}
+        "tasks.train_model_task",
+        kwargs={"hours": hours, "note": note, "activate": activate},
     )
 
     return TrainModelOut(
@@ -97,9 +109,75 @@ def train_model(
     )
 
 
+@admin_router.post("/models/deactivate", response_model=MessageResponse)
+def deactivate_models(db: Session = Depends(get_db)) -> MessageResponse:
+    """Switch to auto-mode. Saved models are kept."""
+    try:
+        registry.deactivate_all(db)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Server error during switching to auto-mode")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server error",
+        )
+    return MessageResponse(message="Switched to auto-mode.")
+
+
+@admin_router.post("/models/{model_id}/activate", response_model=MessageResponse)
+def activate_model(model_id: int, db: Session = Depends(get_db)) -> MessageResponse:
+    try:
+        if not registry.activate(db, model_id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Model not found"
+            )
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Server error during model activation")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server error",
+        )
+    return MessageResponse(message="Model activated.")
+
+
+@admin_router.delete("/models/{model_id}", response_model=DeleteModelOut)
+def delete_one_model(model_id: int, db: Session = Depends(get_db)) -> DeleteModelOut:
+    """If it was active, the system falls back to auto-mode."""
+    try:
+        deleted, was_active = registry.delete_one(db, model_id)
+        if not deleted:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Model not found"
+            )
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logger.exception("Server error during model deletion")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Server error",
+        )
+    return DeleteModelOut(
+        status="ok",
+        deleted=1,
+        message="Model deleted. Switched to auto-mode."
+        if was_active
+        else "Model deleted.",
+    )
+
+
 @admin_router.delete("/model", response_model=DeleteModelOut)
 def delete_model(db: Session = Depends(get_db)) -> DeleteModelOut:
-    """Deletes the custom model — Celery will return to auto-mode."""
+    """Deletes ALL custom models — Celery will return to auto-mode."""
     try:
         stmt = delete(TrainedModel).where(TrainedModel.trained_by == "user")
         result = db.execute(stmt)
@@ -112,12 +190,12 @@ def delete_model(db: Session = Depends(get_db)) -> DeleteModelOut:
         return DeleteModelOut(
             status="ok",
             deleted=deleted,
-            message="Model deleted. Celery switched to auto-mode.",
+            message="Models deleted. Celery switched to auto-mode.",
         )
 
     except Exception:
         db.rollback()
-        logger.exception("Server error during creating task for deletion the model")
+        logger.exception("Server error during deletion the models")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Server error",

@@ -15,7 +15,7 @@ from mona_core.security import (
 logger = logging.getLogger(__name__)
 
 
-@admin_router.post("/api")
+@admin_router.post("/mcp")
 def create_api_key(body: ApiKeyCreate, db: Session = Depends(get_db)):
     api_key = f"mona_api_{secrets.token_urlsafe(32)}"
     api_hash = hashlib.sha256(api_key.encode("utf-8")).hexdigest()

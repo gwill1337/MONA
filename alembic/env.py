@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy import text
 
 from alembic import context
 
@@ -35,6 +36,13 @@ config.set_main_option("sqlalchemy.url", database_url)
 # can be acquired:
 # my_important_option = config.get_main_option("my_important_option")
 # ... etc.
+
+# Session-level advisory lock: serializes parallel `alembic upgrade head` runs
+# (e.g. several FastAPI pods with the migration init container starting at once).
+# Any constant number works, it just has to be the same for all runners.
+# NOTE: session-level locks do not work through a transaction pooler
+# (e.g. Supabase port 6543) - use a direct connection or a session pooler.
+MIGRATION_LOCK_ID = 727274
 
 
 def run_migrations_offline() -> None:
@@ -75,12 +83,32 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
+        # Take the lock BEFORE configuring the context, so that the
+        # alembic_version check below is done only after any concurrent
+        # runner has finished and sees the up-to-date revision.
+        connection.execute(
+            text("SELECT pg_advisory_lock(:id)"), {"id": MIGRATION_LOCK_ID}
         )
+        # The lock is session-level, so commit does not release it. We commit
+        # to leave no open transaction, otherwise Alembic would not manage
+        # the transaction for the migrations itself.
+        connection.commit()
 
-        with context.begin_transaction():
-            context.run_migrations()
+        try:
+            context.configure(
+                connection=connection, target_metadata=target_metadata
+            )
+
+            with context.begin_transaction():
+                context.run_migrations()
+        finally:
+            # If a migration failed, the transaction may be in an aborted
+            # state - roll it back, otherwise the unlock below would fail too.
+            connection.rollback()
+            connection.execute(
+                text("SELECT pg_advisory_unlock(:id)"), {"id": MIGRATION_LOCK_ID}
+            )
+            connection.commit()
 
 
 if context.is_offline_mode():

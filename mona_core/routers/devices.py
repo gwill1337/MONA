@@ -66,6 +66,32 @@ def create_device(body: DeviceCreate, db: Session = Depends(get_db)) -> MessageR
     return MessageResponse(message="Device created")
 
 
+@admin_router.patch("/devices/{device_id}/status", response_model=MessageResponse)
+def switch_device_activity(
+    device_id: int, db: Session = Depends(get_db)
+) -> MessageResponse:
+    query = select(Device).where(Device.id == device_id)
+    device = db.execute(query).scalar_one_or_none()
+
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Device not found"
+        )
+
+    device.is_active = not device.is_active
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error during changing device status",
+        )
+
+    return MessageResponse(message="Device status changed")
+
+
 @admin_router.delete("/devices/{device_id}", response_model=MessageResponse)
 def delete_device(device_id: int, db: Session = Depends(get_db)) -> MessageResponse:
     logger.debug("Attempting to delete device", extra={"device": device_id})
@@ -75,8 +101,7 @@ def delete_device(device_id: int, db: Session = Depends(get_db)) -> MessageRespo
 
         if result.rowcount == 0:  # type: ignore
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Device not found",
+                status_code=status.HTTP_404_NOT_FOUND, detail="Device not found"
             )
 
         db.commit()
