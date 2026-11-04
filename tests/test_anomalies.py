@@ -1,11 +1,16 @@
+import itertools
 from datetime import UTC, datetime, timedelta
 
 from mona_core.db import Anomaly
 
+
 class TestAnomalies:
+    # anomalies.metric_id is UNIQUE, so every row needs its own id
+    _metric_ids = itertools.count(1)
+
     def _make_anomaly(self, device, timestamp, score=0.9):
         return Anomaly(
-            metric_id=1,
+            metric_id=next(self._metric_ids),
             cpu=90.0,
             ram=80.0,
             timestamp=timestamp,
@@ -27,8 +32,23 @@ class TestAnomalies:
         resp = client.get("/api/v1/anomalies")
         assert resp.status_code == 200
         body = resp.json()
-        assert len(body) == 3
+        # the 48h-old anomaly is outside the default window
+        assert len(body["items"]) == 1
         assert body["items"][0]["device"] == "srv-1"
+
+    def test_get_anomalies_custom_hours(self, client, db_session, mock_user_auth):
+        now = datetime.now(UTC)
+        db_session.add_all(
+            [
+                self._make_anomaly("srv-1", now - timedelta(hours=1)),
+                self._make_anomaly("srv-1", now - timedelta(hours=3)),
+            ]
+        )
+        db_session.commit()
+
+        resp = client.get("/api/v1/anomalies", params={"hours": 2})
+        assert resp.status_code == 200
+        assert len(resp.json()["items"]) == 1
 
     def test_get_anomalies_filter_by_device(self, client, db_session, mock_user_auth):
         now = datetime.now(UTC)
@@ -43,7 +63,7 @@ class TestAnomalies:
         resp = client.get("/api/v1/anomalies", params={"device": "srv-2"})
         assert resp.status_code == 200
         body = resp.json()
-        assert len(body) == 3
+        assert len(body["items"]) == 1
         assert body["items"][0]["device"] == "srv-2"
 
     def test_get_anomalies_hours_zero_disables_time_filter(
@@ -55,7 +75,7 @@ class TestAnomalies:
 
         resp = client.get("/api/v1/anomalies", params={"hours": 0})
         assert resp.status_code == 200
-        assert len(resp.json()) == 3
+        assert len(resp.json()["items"]) == 1
 
     def test_get_anomalies_ordered_desc(self, client, db_session, mock_user_auth):
         now = datetime.now(UTC)
@@ -70,4 +90,5 @@ class TestAnomalies:
         resp = client.get("/api/v1/anomalies")
         body = resp.json()
         timestamps = [a["timestamp"] for a in body["items"]]
+        assert len(timestamps) == 2
         assert timestamps == sorted(timestamps, reverse=True)
