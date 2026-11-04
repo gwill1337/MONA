@@ -13,7 +13,6 @@ dependencies = [
     "redis>=8.1.0",
     "sqlalchemy>=2.0.52",
     "psycopg2-binary>=2.9.12",
-    "fastmcp>=2.14.6",
 ]
 
 [tool.ruff]
