@@ -75,3 +75,36 @@ variable "redis_enabled" {
 variable "external_redis_url" {
   type = string
 }
+
+variable "window" {
+  type = number
+}
+
+variable "min_points" {
+  type = number
+}
+
+variable "contamination" {
+  type = number
+}
+
+variable "score_threshold" {
+  type = number
+}
+
+variable "max_attempts" {
+  type = number
+}
+
+variable "lockout_seconds" {
+  type = number
+}
+
+variable "session_ttl" {
+  type = number
+}
+
+variable "exporters" {
+  type    = string
+  default = ""
+}

@@ -92,10 +92,12 @@ spec:
             - name: DATABASE_URL
               value: {{ .Values.postgres.external.url | quote }}
             {{- end }}
-            - name: EXPORTERS
-              value: "{{ range $i, $e := .Values.global.externalPcExporters }}{{ if $i }},{{ end }}{{ $e.jobName }}:{{ $e.host }}{{ end }}"
             - name: PROMETHEUS_URL
               value: "http://prometheus-main-metrics.{{ .Release.Namespace }}.svc:9090"
+            {{- range $key, $val := .Values.celeryWorker.env }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end }}
           resources:
             {{- toYaml .Values.celeryWorker.resources | nindent 12 }}
       volumes:

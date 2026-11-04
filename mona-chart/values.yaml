@@ -54,6 +54,9 @@ fastapi:
     ADMIN_PASSWORDS: ""
     USER_USERNAMES: ""
     USER_PASSWORDS: ""
+    MAX_ATTEMPTS: 5
+    LOCKOUT_SECONDS: 300
+    SESSION_TTL: 43200
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 10001
@@ -164,6 +167,11 @@ celeryWorker:
   automountServiceAccountToken: false
   env:
     LOG_LEVEL: INFO
+    WINDOW: 500
+    MIN_POINTS: 30
+    CONTAMINATION: 0.05
+    SCORE_THRESHOLD: -0.05
+    EXPORTERS: ""
   podSecurityContext:
     runAsNonRoot: true
     runAsUser: 10001

@@ -64,6 +64,9 @@ services:
       ADMIN_PASSWORDS: ${ADMIN_PASSWORDS:?set ADMIN_PASSWORDS in .env}
       USER_USERNAMES: ${USER_USERNAMES:-}
       USER_PASSWORDS: ${USER_PASSWORDS:-}
+      MAX_ATTEMPTS: ${max_attempts:-5}
+      LOCKOUT_SECONDS: ${lockout_seconds:-300}
+      SESSION_TTL: ${session_ttl:-43200}
     command: >
       sh -c "alembic upgrade head &&
              uvicorn mona_core.main:app --host 0.0.0.0 --port 8000"
@@ -144,6 +147,10 @@ services:
       REDIS_URL: ${redis_url:-redis://redis:6379}
       PROMETHEUS_URL: http://prometheus:9090
       EXPORTERS: ${EXPORTERS:-}
+      WINDOW: ${window:-500}
+      MIN_POINTS: ${min_points:-30}
+      CONTAMINATION: ${contamination:-0.05}
+      SCORE_THRESHOLD: ${score_threshold:--0.05}
     command: celery -A mona_core.celery_conf worker --loglevel=info
     healthcheck:
       test: ["CMD-SHELL", "celery -A mona_core.celery_conf inspect ping -d celery@$$HOSTNAME || exit 1"]

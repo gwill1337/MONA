@@ -137,6 +137,13 @@ resource "helm_release" "mona_app" {
 
   values = [
     file("${path.module}/../mona-chart/values.yaml"),
+    yamlencode({
+      celeryWorker = {
+        env = {
+          EXPORTERS = var.exporters
+        }
+      }
+    })
   ]
 
   set {
@@ -187,6 +194,46 @@ resource "helm_release" "mona_app" {
     name  = "redis.external.url"
     value = var.external_redis_url
   }
+
+  set {
+    name  = "celeryWorker.env.WINDOW"
+    value = var.window
+  }
+
+  set {
+    name  = "celeryWorker.env.MIN_POINTS"
+    value = var.min_points
+  }
+
+  set {
+    name  = "celeryWorker.env.CONTAMINATION"
+    value = var.contamination
+  }
+
+  set {
+    name  = "celeryWorker.env.SCORE_THRESHOLD"
+    value = var.score_threshold
+  }
+
+  set {
+    name  = "fastapi.env.MAX_ATTEMPTS"
+    value = var.max_attempts
+  }
+
+  set {
+    name  = "fastapi.env.LOCKOUT_SECONDS"
+    value = var.lockout_seconds
+  }
+
+  set {
+    name  = "fastapi.env.SESSION_TTL"
+    value = var.session_ttl
+  }
+
+  # set {
+  #   name = "celeryWorker.env.EXPORTERS"
+  #   value = replace(var.exporters, ",", "\\\\,")
+  # }
 
   set_sensitive {
     name  = "postgres.auth.password"
