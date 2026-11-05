@@ -1,6 +1,10 @@
 # CHANGELOG
 
 All notable changes to this project will be documented in this file.
+# [v1.0.1] - 2026-11-4 - MCP Fix
+### Fix
+- mcp: Fixed mcp
+
 ## [v1.0.0] - 2026-11-4 - First Release
 ### Added
 - mcp: Added mcp with tools, resources and prompts.

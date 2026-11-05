@@ -1,27 +1,33 @@
 import hashlib
 
-from fastmcp.server.dependencies import get_http_headers
-from fastmcp.server.middleware import Middleware, MiddlewareContext
+from starlette.concurrency import run_in_threadpool
+from starlette.responses import JSONResponse
 
 from mona_core.db import ApiKey, SessionLocal
 
 
-class ApiKeyAuthMiddleware(Middleware):
-    async def on_message(self, context: MiddlewareContext, call_next):
-        headers = get_http_headers()
+def _is_valid(token: str) -> bool:
+    key_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    with SessionLocal() as session:
+        return session.query(ApiKey).filter_by(key_hash=key_hash).first() is not None
 
-        if headers:
-            auth_header = headers.get("authorization") or headers.get("Authorization")
 
-            if not auth_header or not auth_header.startswith("Bearer "):
-                raise PermissionError("Missing or invalid Authorization header")
+class ApiKeyAuthMiddleware:
+    def __init__(self, app):
+        self.app = app
 
-            token = auth_header.split(" ")[1]
-            incoming_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-            with SessionLocal() as session:
-                db_key = session.query(ApiKey).filter_by(key_hash=incoming_hash).first()
-                if not db_key:
-                    raise PermissionError("Invalid API key")
+        headers = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
+        auth = headers.get("authorization", "")
+        token = auth.removeprefix("Bearer ").strip() if auth.startswith("Bearer ") else ""
 
-        return await call_next(context)
+        if not token or not await run_in_threadpool(_is_valid, token):
+            response = JSONResponse({"error": "Missing or invalid API key"}, status_code=401)
+            await response(scope, receive, send)
+            return
+
+        await self.app(scope, receive, send)
