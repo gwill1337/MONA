@@ -1,6 +1,11 @@
 # CHANGELOG
 
 All notable changes to this project will be documented in this file.
+# [v1.0.2] - 2026-11-17 - Backend Fix
+### Fix
+- mcp: Fixed mcp auth
+- backend: Fixed logout typo
+
 # [v1.0.1] - 2026-11-4 - MCP Fix
 ### Fix
 - mcp: Fixed mcp

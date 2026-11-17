@@ -213,7 +213,7 @@ async def logout(
     response: Response, user_session: str | None = Cookie(None)
 ) -> MessageResponse:
     if user_session:
-        raw = await redis_client.get(f"sesion:{user_session}")
+        raw = await redis_client.get(f"session:{user_session}")
         if raw:
             data = json.loads(raw)
             await unregister_session(data["id"], user_session)
