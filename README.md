@@ -1,27 +1,43 @@
-# MONA - Monitor & Analytics Tool
-<div align="center">
+<h1 align="center">MONA - Monitor & Analytics Platform</h1>
 
-![CI Pipeline](https://img.shields.io/badge/CI_Pipeline-Automated_Checks-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
-![Terraform](https://img.shields.io/badge/Terraform-844FBA?style=for-the-badge&logo=terraform&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+<p align="center">
+  <a href="https://github.com/gwill1337/MONA/releases"><img alt="Release" src="https://img.shields.io/github/v/release/gwill1337/MONA?style=flat-square&labelColor=1f2328&color=2f81f7"></a>
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/github/license/gwill1337/MONA?style=flat-square&labelColor=1f2328&color=3fb950"></a>
+  <a href="https://github.com/gwill1337/MONA/actions"><img alt="CI status" src="https://img.shields.io/github/check-runs/gwill1337/MONA/main?style=flat-square&labelColor=1f2328&label=CI"></a>
+  <a href="https://github.com/gwill1337/MONA/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/gwill1337/MONA?style=flat-square&labelColor=1f2328&color=d29922"></a>
+  <img alt="MCP server built in" src="https://img.shields.io/badge/MCP-built--in-8957e5?style=flat-square&labelColor=1f2328">
+</p>
 
-</div>
+<p align="center">
+  <img alt="Tech stack: Python, FastAPI, React, TypeScript, Tailwind, PostgreSQL, Redis, Docker, Kubernetes, Terraform, Prometheus, Grafana" src="https://skillicons.dev/icons?i=py,fastapi,react,ts,tailwind,postgres,redis,docker,kubernetes,terraform,prometheus,grafana&perline=12">
+</p>
+
+<h3 align="center">Open-source & self-hosted monitoring platform with ML anomaly detection: Prometheus and node-exporter metrics, Isolation Forest, Kubernetes or Docker Compose, and an MCP server for AI agents</h3>
+
+<p align="center">
+  <a href="https://mona-eliseyar.vercel.app/">Website</a> ·
+  <a href="https://mona-eliseyar.vercel.app/demo">Live demo</a> ·
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="#comparison-with-similar-monitoring-platforms-and-tools">Comparison</a> ·
+  <a href="#how-anomaly-detection-works">How it works</a> ·
+  <a href="#mcp-server-for-ai-agents">MCP server</a> ·
+  <a href="#faq">FAQ</a>
+</p>
+
+![MONA dashboard with CPU and RAM charts per device and detected anomalies](https://github.com/gwill1337/Images/raw/main/MONA/MONA_dashboard.gif)
 
 ## About
-MONA is a K8s-based monitoring and analytics tool managed with Terraform and Helm. It collects and analyzes system metrics, built on Python with Celery and Redis as a task broker for metrics collection and ML workloads. FastAPI serves as the REST API/backend, React + Tailwind v4 + TypeScript handles web UI frontend, and PostgreSQL stores all metrics data.
 
+MONA is an open-source, self-hosted monitoring and AIOps platform. It collects CPU and RAM from your machines through Prometheus and [node-exporter](https://github.com/prometheus/node_exporter), finds anomalies with an Isolation Forest model (scikit-learn) and shows them in a web UI. A built-in [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server gives LLMs and agents the same data: devices, metrics, anomalies, health checks and model training.
 
-## Quick Start:
+It runs on Kubernetes (kind, Terraform, Helm) or Docker Compose. Backend: FastAPI, Celery, Redis, PostgreSQL. Frontend: React, Tailwind v4, TypeScript. MIT license.
+
+## Quick Start
 ### Terraform:
 1. Ensure [**Docker Desktop**](https://www.docker.com/products/docker-desktop/), [**kind**](https://github.com/kubernetes-sigs/kind), [**helm**](https://helm.sh/) and [**Terraform**](https://developer.hashicorp.com/terraform/install) are installed.
 2. Set up node-exporter on the device you want to monitor with port 9100.
 3. Clone repo `git clone https://github.com/gwill1337/MONA.git`
-4. copy `terraform.tfvars` in terraform folder from `terraform.tfvars.example`.      
+4. Copy `terraform.tfvars` in terraform folder from `terraform.tfvars.example`.
 
 **For bash (Linux):**
 ```bash
@@ -34,24 +50,24 @@ cp terraform.tfvars.example terraform.tfvars
 cd terraform
 Copy-Item terraform.tfvars.example terraform.tfvars
 ```
-5. Deploy: Run the automated script:   
+5. Deploy: run the automated script from the repository root:
 
 **For bash (Linux):**
 ```makefile
 make all
 ```
 
-**For PowerShell (Windows)::**
+**For PowerShell (Windows):**
 ```Powershell
 .\deploy.ps1 -all # or .\deploy.ps1 -deploy
 ```
 *For manual deployment, use terraform init && terraform apply inside the /terraform folder.*
 
 ### Docker-compose (without grafana and alerting):
-1. Ensure [**Docker Desktop**](https://www.docker.com/products/docker-desktop/) are installed.
+1. Ensure [**Docker Desktop**](https://www.docker.com/products/docker-desktop/) is installed.
 2. Set up node-exporter on the device you want to monitor with port 9100.
 3. Clone repo `git clone https://github.com/gwill1337/MONA.git`
-4. Copy `.env.example` to `.env`    
+4. Copy `env.example` to `.env`
 
 **For bash (Linux):**
 ```bash
@@ -62,29 +78,33 @@ cp env.example .env
 ```powershell
 Copy-Item env.example .env
 ```
-1. Run the `docker-compose.prod.yml`:
+5. Run the `docker-compose.prod.yml`:
 ```bash
 docker compose -p mona-prod --env-file .env -f docker-compose.prod.yml up -d --build
 ```
 *The Docker Compose version comes without Grafana, Prometheus (for the cluster), and Alertmanager.*
 
 ## Usage
-**Links below are available after setup.**
-### Main links:
-* **Admin panel:** `localhost:30081/` *Default username: admin, password: see the config file (terraform.tfvars or .env)*
-* **Dashboards:** `localhost:30081/dashboard`
-* **Userboard:** `localhost:30081/userboard`
-* **MCP:** `localhost:30081/mcp`
-* **Docs:** `localhost:30081/docs`
-* **Grafana:** `localhost:30300/` *Default username: admin, password: see the config file (terraform.tfvars)*
-* **Prometheus(Monitoring devices):** `localhost:30391/`
-* **Prometheus(Cluster):** `localhost:30091/`
+
+The links below are available after setup.
+
+| Service | URL | Notes |
+|---|---|---|
+| Admin panel | `localhost:30081` | User `admin`, password from `terraform.tfvars` or `.env` |
+| Dashboards / userboard | `localhost:30081/dashboard`, `/userboard` | |
+| MCP page | `localhost:30081/mcp` | Create API keys |
+| Docs | `localhost:30081/docs` | |
+| REST API (Swagger) | `localhost:30080/docs` | |
+| MCP server (SSE) | `localhost:30082/sse` | |
+| Grafana | `localhost:30300` | Kubernetes only. User `admin`, password from `terraform.tfvars` |
+| Prometheus (devices) | `localhost:30391` | |
+| Prometheus (cluster) | `localhost:30091` | Kubernetes only |
 
 <details>
 <summary><b>Click to view detailed API endpoints</b></summary>
 
 ### API:
-*P.S. All endpoint require authentification except prometheus and probes.*
+*P.S. All endpoints require authentication except Prometheus and probes.*
 * Swagger: `localhost:30080/docs`
 
 #### Users:
@@ -122,196 +142,176 @@ docker compose -p mona-prod --env-file .env -f docker-compose.prod.yml up -d --b
 #### Prometheus Endpoints:
 * Metrics[Get]: `localhost:30080/metrics`
 * Targets[Get]: `localhost:30080/api/prometheus/targets`
-  
+
 #### MCP:
 * Create MCP Key[Post]: `localhost:30080/api/v1/mcp`
 * MCP SSE: `localhost:30082/sse`
 
 </details>
 
-![admin panel](https://github.com/gwill1337/Images/blob/main/MONA/MONA_admin.gif)
+![MONA admin panel for devices and users](https://github.com/gwill1337/Images/raw/main/MONA/MONA_admin.gif)
 
-## About cluster & pods
-The infrastructure is managed using Terraform and Helm. The Kubernetes cluster consists of a control-plane node running the following core workloads.    
-Helm templates for flexible and fast setup can be configured in [values](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml) and in terraform.tfvars.
+Devices can be set in `values.yaml`, `terraform.tfvars` or `.env` (good for bulk setup, safe from accidental deletion) or added and removed in the admin panel and API. Prometheus reads the merged list from a dedicated API endpoint.
 
-* **API Engine:** FastAPI endpoints for handling client requests.   
-* **MCP:** FastMCP provide access to anomalies, metrics, devices and models directly via the database for LLMs and Agents.
-* **Task Queue:** Celery workers with a Redis broker for background metrics collection and ML tasks.   
-* **PostgreSQL:** For storing metrics and analytics data.  
-* **Redis:** As a broker for celery and as a storage for sessions and limiter. 
-* **Monitoring Stack:** **Prometheus** for data scraping, **Grafana** for visualization (Recharts is also used in the web UI), Alertmanager for pod alert notifications, and **Loki** with **Promtail** for pod logs.   
+## Comparison with similar monitoring platforms and tools
 
-![dashboard](https://github.com/gwill1337/Images/blob/main/MONA/MONA_dashboard.gif)
+| | MONA | Netdata | Prometheus | Grafana | Zabbix | vmanomaly | Datadog |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| License | MIT | GPL-3.0<sup>1</sup> | Apache-2.0 | AGPL-3.0 | AGPL-3.0 | Enterprise license<sup>2</sup> | Proprietary SaaS |
+| Built-in ML anomaly detection | ✅ | ✅ | ❌ | 🟨<sup>3</sup> | 🟨<sup>4</sup> | ✅ | ✅ |
+| Detection method | Isolation Forest, CPU and RAM together | k-means per metric, all 18 models must agree | Hand-written rules | Forecast, DBSCAN/MAD | STL, baselines | Z-score, MAD, Prophet... | Proprietary |
+| Data source | node-exporter via Prometheus | Netdata Agent | Exporters | Data sources | Zabbix agent, SNMP... | VictoriaMetrics | Datadog Agent |
+| Official MCP server | ✅ built in | ✅ built into the Agent | ✅ prometheus-mcp<sup>5</sup> | ✅ mcp-grafana | ✅ Zabbix MCP server<sup>6</sup> | ✅ mcp-vmanomaly | ✅ remote server |
+| Metric scope | CPU, RAM | Wide | Wide | Wide | Wide | Wide | Wide |
+| Best for | CPU/RAM anomalies | All-in-one, real-time | Metrics and alert rules | Dashboards | Classic infra monitoring | VictoriaMetrics users | Managed SaaS |
 
-## ML
-* **ML:** Mona uses Scikit-learn for anomaly detection.
-* **Training:** The model uses **Isolation Forest** and builds features with deltas for more accurate anomaly detection.
-* **Features:** Every point is described by 6 features: CPU and RAM values, their change from the previous sample (`d1`) and their change over the last 5 samples (`d5`, about 2.5 minutes with the default 30-second collector).
-* **Gaps & offline periods:** Deltas are never calculated across a time gap longer than 90 seconds or across a switch between offline and online. Because of this, the first points after a device comes back are not treated as a sudden jump.
-* **Zeros:** If Prometheus has no data for a device (for example, the device is offline), MONA stores `0.0` instead of skipping the point. Zeros stay in the database and on the charts, but a point where both CPU and RAM are zero is never reported as an anomaly.
+<sup>1</sup> The Netdata Agent is GPL-3.0+. The dashboard UI and Netdata Cloud use the NCUL1 license.
+<sup>2</sup> vmanomaly needs a VictoriaMetrics Enterprise license (free trial available). Its MCP server is Apache-2.0.
+<sup>3</sup> Forecasting and outlier detection are documented as Grafana Cloud features.
+<sup>4</sup> Statistical trigger functions (`trendstl`, `baselinedev`, `baselinewma`), not trained ML models.
+<sup>5</sup> `prometheus/prometheus-mcp` lives in the Prometheus GitHub org and is still 0.x.
+<sup>6</sup> Documented for Zabbix 8.0.
 
+**MONA fits** if you already run node-exporter and Prometheus, want a per-device model that retrains automatically, or a stored model you can switch, and prefer a permissive MIT license.
 
-### Model has 2 modes
-1. **Auto:** Runs every 30 seconds and works per device. It takes the most recent `WINDOW` points (500 by default, at least `MIN_POINTS` = 30 clean points are required) and trains the model on the fly. The model is not stored in the database and retrains before each detection. Two kinds of points are never used for training:
-   * the points being checked (the last 5 minutes);
-   * the area around already detected anomalies: 5 minutes before and after each one, extended through the whole period while CPU or RAM stays above 80%.
+**Netdata, Zabbix or Datadog fit** if you need many more metrics than CPU and RAM. Netdata also needs no setup for ML and collects every metric every second.
 
-2. **Manual:** Uses a time range specified by the user. The model is trained on all devices at once with the same cleaning of known anomalies as in Auto, and is stored in the database together with its scaler. At least 30 clean points are required. MONA keeps the 10 newest models (the active one is never removed). A trained model can be activated right away or later; while a model is active, detection uses it instead of Auto. If the stored model can't be loaded, detection falls back to Auto.
+*Checked against vendor docs in November 2026.*
 
-## PostgreSQL
-Postgres runs as a `StatefulSet`, which provides stable pod identifiers, persistent storage linked to specific pods, and ordered deployment for stateful applications.   
-For detailed information about the tables, see [db.py](https://github.com/gwill1337/MONA/blob/main/mona_core/db.py).
+## How anomaly detection works
 
-### Postgres has 5 tables:
-* **devices:** stores devices.
-* **metrics:** stores collected metrics from the monitored device.
-* **anomalies:** stores detected anomalies.
-* **trained_models:** stores trained models.
-* **users:** stores users.
-* **api_keys:** stores api keys for MCP authentication.
+1. **Collect.** Every 30 seconds Celery asks Prometheus for CPU and RAM of each active device and saves a point to PostgreSQL. If there is no data (device offline), MONA saves `0.0`.
+2. **Features.** Each point has 6 features: CPU, RAM, and the change of both since the previous sample (`d1`) and over the last 5 samples (`d5`, about 2.5 minutes). Deltas are not calculated across gaps longer than 90 seconds or across an offline/online switch.
+3. **Check.** Every 30 seconds the detector scores the points from the last 5 minutes with an Isolation Forest model.
+4. **Filter.** A point is saved as an anomaly only if its score is below `SCORE_THRESHOLD` (-0.05), CPU and RAM are not both zero, it is not a weak combined anomaly (both below 80%), and it was not saved before.
+5. **Explain.** Each anomaly is stored with its score and a reason:
 
-and can be opened via psql:
-```bash
-kubectl exec -it statefulset/postgres-statefulset -n mona -- psql -U myuser -d mydb
-#              ⬆ pod name                          ⬆ namespace    ⬆ Username ⬆ DB name
-```
+| Reason | Condition |
+|---|---|
+| High usage | CPU or RAM above 85% |
+| Sudden change | CPU change above 20% or RAM above 15% between two samples |
+| Change over 5 samples | CPU above 30% or RAM above 20% |
+| Combined | none of the above stands out |
 
-![MCP](https://github.com/gwill1337/Images/blob/main/MONA/MONA_mcp.gif)
+### Auto and Manual modes
 
-## MCP
-MONA has an MCP server built with [FastMCP](https://github.com/jlowin/fastmcp). LLMs and agents can use it to read devices, metrics and anomalies, check the health of MONA, and start model training. The server works directly with the database, so it does not need the web UI.
+| | Auto | Manual |
+|---|---|---|
+| Training data | Last `WINDOW` points per device (500 by default, at least `MIN_POINTS` = 30 clean) | A time range you choose, all devices together (at least 30 clean points) |
+| Model storage | Not stored, retrained before each detection | Stored with its scaler, the 10 newest are kept (the active one is never removed) |
+| When used | Default | While a model is active. If it can't be loaded, MONA falls back to Auto |
 
-The MCP server starts together with the rest of MONA, both in Terraform and in Docker Compose. You don't need to enable it.
+Training never uses the points being checked (last 5 minutes) or the area around known anomalies: 5 minutes before and after each, extended while CPU or RAM stays above 80%.
 
-### Connection
-* **Transport:** SSE
-* **URL:** `http://localhost:30082/sse`
-* **Authentication:** API key, sent as a bearer token in the `Authorization` header.
+`CONTAMINATION = 0.05` means the model may flag up to 5% of points, even if nothing is wrong. `SCORE_THRESHOLD` and the 80% rule reduce these false positives. Model code: [ml.py](https://github.com/gwill1337/MONA/blob/main/mona_core/ml.py).
 
-API keys are stored in the `api_keys` table. A FastMCP middleware reads the bearer token from each request and checks it against this table. Requests without a valid key are rejected.
+## MCP server for AI agents
 
-### Create API token
-You can create an API key on the MCP page in MONA, or send a request directly to the endpoint `localhost:30080/api/v1/mcp`.
+The server is built with [FastMCP](https://github.com/jlowin/fastmcp), reads straight from the database and starts together with MONA (Terraform and Docker Compose). Transport is SSE at `http://localhost:30082/sse`. Authentication is an API key sent as a bearer token. An ASGI middleware checks it against the `api_keys` table on every request and returns `401` if it is missing or invalid.
 
-Example for Claude Code:
+Create a key on the MCP page (`localhost:30081/mcp`) or with `POST localhost:30080/api/v1/mcp`, then connect a client.
+
 ```bash
 claude mcp add --transport sse mona http://localhost:30082/sse \
   --header "Authorization: Bearer <YOUR_API_KEY>"
 ```
 
-Other MCP clients use a similar setup: give them the SSE URL and the `Authorization` header. The exact config format depends on the client.
+Other clients (for example Cursor) need the same URL and header. The config format depends on the client:
 
-### Configuration
-The MCP server has no separate options in `terraform.tfvars`. In Docker Compose it takes the Postgres and Redis settings from `.env`, the same as the API. `LOG_LEVEL` sets its log level.
+```json
+{
+  "mcpServers": {
+    "mona": {
+      "url": "http://localhost:30082/sse",
+      "headers": { "Authorization": "Bearer <YOUR_API_KEY>" }
+    }
+  }
+}
+```
 
-It also needs two internal addresses (already set in `docker-compose.prod.yml` and in the Helm chart):
-
-* `MONA_API_URL` — address of the MONA API, used for the health check and for `get_prometheus_targets`.
-* `PROMETHEUS_URL` — address of Prometheus that scrapes the monitored devices.
-
-### Main Tools & Capabilities
-* **get_mona_health:** Checks availability and health status of MONA API, PostgreSQL, Redis, and Prometheus services.
-* **get_device_metrics:** Retrieves paginated CPU and RAM telemetry metrics for a specified device from PostgreSQL
-* **get_mona_anomalies:** Fetches detected ML anomaly records with time range, device, and score filters from PostgreSQL.
-* **train_anomaly_model:** Submits an asynchronous background task via Celery to train an Isolation Forest anomaly model.
+Main tools: `get_mona_health`, `get_device_metrics`, `get_mona_anomalies`, `train_anomaly_model` (starts a Celery training task).
 
 <details>
+<summary>All 13 tools, prompts, resources and settings</summary>
 
-<summary><b>Click to view Additional Tools</b></summary>
+| Tool | What it does |
+|---|---|
+| `get_mona_health` | Health of the MONA API, PostgreSQL, Redis and Prometheus |
+| `get_device_metrics` | Paginated CPU and RAM metrics of a device |
+| `get_mona_anomalies` | Anomalies, filtered by time range, device and score |
+| `train_anomaly_model` | Starts an async Isolation Forest training task |
+| `get_mona_devices` | Lists monitored devices |
+| `add_mona_device` | Adds a device (checks for duplicates) |
+| `remove_mona_device` | Removes a device by IP address |
+| `get_task_status` | Status of a background task (Celery/Redis) |
+| `get_model_info` | Active model metadata and number of stored models |
+| `list_models` | Lists manually trained models |
+| `activate_model` | Makes a stored model the active one |
+| `deactivate_model` | Switches detection back to Auto |
+| `get_prometheus_targets` | Prometheus scrape targets via the MONA API |
 
-### Additional Tools
+**Prompts:** `diagnose_mona` (full health check), `investigate_anomaly` (SRE workflow with before/after metrics).
+**Resources:** `mona://docs/overview` (architecture), `mona://docs/metrics` (metric schemas, ML parameters, anomaly rules).
 
-#### Tools
-
-* **get_mona_devices:** Fetches the list of all monitored devices from the PostgreSQL database.
-* **add_mona_device:** Registers a new device in the PostgreSQL database with duplicate checks.
-* **remove_mona_device:** Deletes a device record from the PostgreSQL database by its IP address.
-* **get_task_status:** Queries Celery/Redis for the current status of an asynchronous background task.
-* **get_model_info:** Retrieves metadata for the active ML model and total count of stored models from PostgreSQL.
-* **list_models:** Lists all saved, manually trained ML models from the PostgreSQL database.
-* **activate_model:** Sets a specific stored model as active in the PostgreSQL database for anomaly detection.
-* **deactivate_model:** Switches anomaly detection back to auto-mode by deactivating custom models in PostgreSQL.
-* **get_prometheus_targets:** Fetches configured Prometheus scrape targets via MONA HTTP API.
-
-#### Prompts
-* **diagnose_mona:** Guides the AI through a full system health assessment using MCP tools.
-* **investigate_anomaly:** Provides a step-by-step SRE workflow to investigate device anomalies using before/after metrics.
-
-#### Resources
-* **mona://docs/overview:** Provides architecture, component structure, and operational documentation.
-* **mona://docs/metrics:** Contains detailed documentation on metric schemas, ML parameters, and anomaly rules.
+**Settings:** the MCP server has no options in `terraform.tfvars`. In Docker Compose it reads the Postgres and Redis settings from `.env`. `LOG_LEVEL` sets the log level. Two internal addresses are already set in `docker-compose.prod.yml` and the Helm chart: `MONA_API_URL` (health check, `get_prometheus_targets`) and `PROMETHEUS_URL`.
 
 </details>
 
-![userboard](https://github.com/gwill1337/Images/blob/main/MONA/MONA_userboard.gif)
-## Authentication & Authorization
-MONA uses a stateful, cookie-based authentication system backed by Redis to secure the admin panel and core API endpoints.
-
-### MCP Authentication:
-MCP Authentication uses a middlewire in FastMCP to catch bearer token.
-
-### Admin Setup
-During deployment, the `seed_admin` function runs automatically on startup. It reads the **ADMIN_USERNAMES**,**ADMIN_PASSWORDS** and **USER_USERNAMES**,**USER_PASSWORDS** environment variables (configured via your terraform.tfvars or .env files) and provisions the initial user and admin accounts in the PostgreSQL database if it does not already exist.
-
-* **Session Management:** Upon a successful POST request to `/api/auth/login`, FastAPI generates a cryptographically secure 32-byte session token.
-* **Redis Storage:** This token is stored in the Redis broker with a 12-hour expiration time (`ex=43200`), linking the session to the user's ID.
-* **Cookies:** The token is returned to the frontend as an `HttpOnly`, `Lax` cookie named `user_session`. This ensures the token is automatically sent with subsequent requests while remaining protected from cross-site scripting (XSS) attacks.
-* **Access Control:** All protected endpoints — except health checks (`/health/live`, `/health/ready`) and Prometheus metrics (`/api/prometheus/targets`) — are routed through role-aware `user_router` / `admin_router` dependencies that validate the session token against Redis. **Users** are restricted to **GET** requests only, giving them read-only access to dashboards and device data, while **admins** have full access to all methods — `GET`, `POST`, `PUT`, `DELETE` — including device management and ML training endpoints. If the session is missing or expired, the API returns `401 Unauthorized`; if the session is valid but the account's role doesn't permit the requested method, it returns `403 Forbidden`.
-* **Logout:** Endpoint `/api/auth/logout` deletes the session key from Redis and clears the client's cookie.
-
-P.S. Endpoints like `/health/live`, `/health/ready`, and Prometheus target metrics (`/api/prometheus/targets`) are intentionally excluded from authentication to allow seamless cluster monitoring.
-
-## CI
-Automated checks and docker build & push run on every push and pull request:
-
-* **Gitleaks:** — leaks scan
-* **Checkov:** — IaC scan
-* **Terraform** — format and validation checks
-* **Helm** — lint for helm charts
-* **YAML** — lint for values and chart files
-* **Python** — ruff (lint and format checks), MyPy (type checks), Pytest (Api tests)
-* **Docker** — scan images via Trivy
+![MONA MCP page for creating API keys](https://github.com/gwill1337/Images/raw/main/MONA/MONA_mcp.gif)
 
 ## Architecture
-Here more about architecture and how **MONA** works.
 
-### ML
-MONA's [**ML model**](https://github.com/gwill1337/MONA/blob/main/mona_core/ml.py) has `CONTAMINATION = 0.05` which means up to 5% of data points might be classified as anomalies, even if there are none.
-To reduce false positive detections, the model is equipped with a limiter `SCORE_THRESHOLD = -0.05`.   
-In other words, it discards anomalies that the model estimates at less than a 5% confidence threshold. To definitively rule out false positives, the model also ignores "combined anomalies" if CPU and RAM usage are below 80%.
+Helm templates can be configured in [values.yaml](https://github.com/gwill1337/MONA/blob/main/mona-chart/values.yaml) and in `terraform.tfvars`.
 
-#### How detection works:
-1. **Collect:** Every 30 seconds Celery queries Prometheus for CPU and RAM of every active device and saves a new metric point.
-2. **Check:** Every 30 seconds the detector looks only at points from the last 5 minutes. Older points of the same device are the training history (Auto mode) or are ignored (Manual mode).
-3. **Filter:** A point becomes an anomaly only if all of these are true:
-   * the model marks it as an outlier and its score is below `SCORE_THRESHOLD`;
-   * CPU and RAM are not both zero;
-   * it is not a weak "combined anomaly" (both CPU and RAM below 80%);
-   * it was not saved before (one anomaly per metric point).
-4. **Explain:** Every anomaly is saved with its score and a reason: high usage (CPU or RAM above 85%), a sudden change between two samples (CPU more than 20% or RAM more than 15%), a change over 5 samples (CPU more than 30% or RAM more than 20%), or a combined anomaly if no single factor stands out.
+```mermaid
+flowchart LR
+    NE["node-exporter :9100<br/>(monitored devices)"] --> P[Prometheus]
+    API[FastAPI] -->|targets list| P
+    P --> C["Celery worker<br/>collects every 30 s"]
+    C --> DB[(PostgreSQL)]
+    C --> D["Anomaly detector<br/>Isolation Forest"]
+    D --> DB
+    DB --> API
+    DB --> MCP["MCP server<br/>FastMCP"]
+    API --> UI["Web UI<br/>React"]
+    MCP --> A["LLMs and AI agents"]
+```
 
+* **FastAPI:** REST API. ML training runs in Celery, and `/api/v1/task-status/{task_id}` reports progress through Redis.
+* **Celery + Redis:** metrics collection and ML tasks. Redis also stores sessions and the rate limiter.
+* **PostgreSQL:** runs as a `StatefulSet`, which gives stable pod identifiers, persistent storage linked to specific pods and ordered deployment. Tables: `devices`, `metrics`, `anomalies`, `trained_models`, `users`, `api_keys` ([db.py](https://github.com/gwill1337/MONA/blob/main/mona_core/db.py)).
+* **Monitoring stack (Kubernetes):** Prometheus scrapes the data, Grafana visualizes it (the web UI also draws charts with Recharts), Alertmanager sends pod alert notifications, Loki and Promtail collect pod logs.
+* **Startup and probes:** `busybox` init containers wait for the database. `/health/live` checks the API and `/health/ready` checks the database.
+* **Dashboard buckets:** with a time range, `/api/v1/dashboard` averages points into 1-minute (up to 12 h), 10-minute (up to 7 days) or 1-hour buckets. `max_points` is 2000 by default, 10000 at most. Anomalies are returned as they are.
 
-### Dashboard
-When a time range is selected (`hours` or `start` and `end`), the dashboard endpoint (`/api/v1/dashboard`) groups the metrics into time buckets for each device, and CPU and RAM are averaged inside every bucket. This keeps charts fast and readable on long ranges. The bucket size depends on the length of the range:
- 
-* up to 12 hours — 1 minute buckets
-* more than 12 hours and less than 7 days — 10 minute buckets
-* 7 days and more — 1 hour buckets
-The number of returned metric points is limited by `max_points` (2000 by default, 10000 at most). Anomalies are returned as they are, without bucketing.
+PostgreSQL can be opened via psql:
+```bash
+kubectl exec -it statefulset/postgres-statefulset -n mona -- psql -U myuser -d mydb
+#              ⬆ pod name                          ⬆ namespace    ⬆ Username ⬆ DB name
+```
 
+## Authentication
 
-### FastAPI
-#### Config vs Admin Panel Device Management:
-Managing monitored devices in MONA can be done in two ways to ensure flexibility:
-1. Values.yaml / terraform.tfvars / .env: Ideal for bulk-adding devices during deployment and preventing accidental deletions. FastAPI reads these configurations and commits them to the database.
-2. Admin Panel / API: Allows dynamically adding or removing devices via HTTP POST/DELETE requests.
+* On login (`POST /api/v1/auth/login`) FastAPI creates a 32-byte session token and stores it in Redis for 12 hours (`ex=43200`). The browser gets it as an `HttpOnly`, `Lax` cookie named `user_session`: it is sent with every request and can't be read by scripts, which protects it from XSS.
+* Roles: **admin** has full access (`GET`, `POST`, `PUT`, `DELETE`), **user** can only send `GET` requests. A missing or expired session returns `401`, a role without permission returns `403`.
+* `POST /api/v1/auth/logout` deletes the session key from Redis and clears the cookie.
+* On startup `seed_admin` creates the first accounts from `ADMIN_USERNAMES`, `ADMIN_PASSWORDS`, `USER_USERNAMES` and `USER_PASSWORDS` (set in `terraform.tfvars` or `.env`).
+* Health probes (`/health/live`, `/health/ready`) and Prometheus endpoints (`/metrics`, `/api/prometheus/targets`) are excluded from authentication so that cluster monitoring works without credentials.
 
-Prometheus consistently scrapes a dedicated endpoint to fetch the most up-to-date list of devices from the database, seamlessly merging both approaches.
+## CI
 
-#### FastAPI & Celery:
-To maintain a responsive REST API, heavy ML model training tasks are offloaded to Celery. Because these tasks are asynchronous, FastAPI implements a dedicated task-tracking endpoint using Redis to reliably monitor task status and return responses.
+Runs on every push and pull request: Gitleaks (secrets), Checkov (IaC), Terraform fmt and validate, Helm lint, yamllint, ruff, MyPy, Pytest, Trivy (Docker images), plus Docker build and push.
 
-### deploy & liveness:
-* **Init Containers:** FastAPI and Celery deployments use `busybox` init scripts to wait for the database to be fully operational before starting the pods.
-* **Probes:** FastAPI includes two health-check endpoints for Kubernetes: one for Liveness (API health) and one for Readiness (Database connectivity).
+## FAQ
+
+**What does MONA monitor?** CPU and RAM of devices that run node-exporter on port 9100, one point every 30 seconds. Other metrics are not supported.
+
+**Do I need Kubernetes?** No. Docker Compose works, without Grafana, cluster Prometheus and Alertmanager.
+
+**What happens when a device goes offline?** MONA saves `0.0` for it. A point where both CPU and RAM are zero is never reported as an anomaly, and deltas restart after the gap.
+
+**Can AI agents use MONA?** Yes, through the [MCP server](#mcp-server-for-ai-agents). Claude Code, Cursor and other MCP clients can read data and start training.
+
+## License
+
+[MIT](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) and the [changelog](CHANGELOG.md).
