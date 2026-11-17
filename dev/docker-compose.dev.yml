@@ -37,7 +37,7 @@ services:
   mcp:
     build:
       context: ..
-      dockerfile: dev/Dockerfile.dev.fastapi  # Можно использовать тот же образ, что и у api
+      dockerfile: dev/Dockerfile.dev.fastapi
     image: mona-mcp-dev:local
     container_name: mona-mcp-dev
     restart: unless-stopped
@@ -56,12 +56,12 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
     ports:
-      - "30082:8000"  # Порт, по которому Claude Desktop будет стучаться в MCP по SSE
+      - "30082:8000"
     volumes:
       - ..:/app
       - api_venv:/app/.venv
-    working_dir: /app/mcp  # Указываем рабочей директорией папку с MCP
-    command: uv run python main.py
+    working_dir: /app/mcp
+    command: uv run uvicorn main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:30082/sse')"]
       interval: 10s
